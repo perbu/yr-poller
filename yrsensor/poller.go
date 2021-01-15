@@ -3,17 +3,18 @@ package yrsensor
 import (
 	"encoding/json"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 )
 
+// Helper that just run the GET request on a URL.
 func request(url string, queryParams map[string]string, userAgent string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		// This shouldn't happen.
-		panic(err.Error())
+		log.Fatal("While constructing HTTP request: ", err.Error())
 	}
 	// Add query params
 	reqQuery := req.URL.Query()
@@ -27,10 +28,12 @@ func request(url string, queryParams map[string]string, userAgent string) (*http
 
 	// Send request
 	res, err := http.DefaultClient.Do(req)
-
+	// Pass down the result, note that the caller must check for errors.
 	return res, err
 }
 
+// Fetches a new forecast and replaces the one we have.
+// It takes a location and only uses the location id
 func getNewForecast(loc Location, apiUrl string, apiVersion string, userAgent string) (LocationForecast, error) {
 	var forecast LocationForecast
 
@@ -42,18 +45,21 @@ func getNewForecast(loc Location, apiUrl string, apiVersion string, userAgent st
 	res, err := request(url, params, userAgent)
 
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Errorf("While getting %s : %s", url, err.Error())
 		return forecast, err
 	}
 	if res.StatusCode != 200 && res.StatusCode != 203 {
-		log.Fatal(err.Error())
-		return forecast, err
+		log.Errorf("Got status %v on %s", res.StatusCode, url)
+		return forecast, fmt.Errorf("Invalid status code: %v", res.StatusCode)
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return forecast, err
 	}
-	json.Unmarshal(body, &forecast)
+	err = json.Unmarshal(body, &forecast)
+	if err != nil {
+		log.Fatalf("Error unmarshaling JSON from %s: %s", url, err.Error())
+	}
 	forecast.Expires, err = http.ParseTime(res.Header.Get("Expires"))
 	if err != nil {
 		panic("Could not parse expires header")
@@ -61,13 +67,8 @@ func getNewForecast(loc Location, apiUrl string, apiVersion string, userAgent st
 	return forecast, nil
 }
 
-/*
-func getFullForecast(loc Location) (LocationForecast, error) {
-	var forecast LocationForecast
-
-	forecast, err != getFullForecast(loc)
-}
-*/
+// Transforms the LocationForecast we get from Yr into something minimal we need.
+// It basically just scrubs away a lot of stuff we don't need.
 func transformForecast(forecast LocationForecast) ObservationTimeSeries {
 	var m ObservationTimeSeries
 	m.expires = forecast.Expires
@@ -81,46 +82,47 @@ func transformForecast(forecast LocationForecast) ObservationTimeSeries {
 			panic("Could not parse time on timeseries")
 		}
 	}
-	log.Print("Forecast transformed")
+	log.Debug("Forecast transformed")
 	return m
 }
 
+// Checks all the time series and updates them if the data is outdated.
 func refreshData(apiUrl string, apiVersion string, userAgent string) {
-	log.Printf("Polling the virtual nodes...(%s)", locations)
-	for i, loc := range locations {
-		log.Printf("%v - Polling %v", i, loc.Id)
+	log.Debug("Polling the virtual nodes. # of nodes: ", len(locations))
+	for _, loc := range locations {
+		log.Debug("Polling ", loc.Id)
 		forecastsCache.mu.RLock()
 		updateNeeded := forecastsCache.observations[loc.Id].expires.Before(time.Now().UTC())
 		forecastsCache.mu.RUnlock()
 
 		if updateNeeded {
-			log.Printf("  Invalid or no data found for %v - refreshing.\n", loc.Id)
+			log.Debug("Outdated or no data found. Refreshing ", loc.Id)
+			// locking needed?
+			log.Debugf("Current data has expiry %v", forecastsCache.observations[loc.Id].expires)
 			// No data or invalid data. Refresh the dataset we have.
 			forecast, err := getNewForecast(loc, apiUrl, apiVersion, userAgent)
 			if err != nil {
-				panic(err.Error())
+				log.Errorf("Got error on forecast: %s. Sleeping 10 sec.", err.Error())
+				time.Sleep(10 * time.Second)
 			}
 			m := transformForecast(forecast)
-			if len(m.ts) > 0 {
-				fmt.Print("Got it!")
-			}
 			forecastsCache.mu.Lock()
 			forecastsCache.observations[loc.Id] = m
 			forecastsCache.mu.Unlock()
 		} else {
-			log.Print("Current data is up to date.")
+			log.Debug("Current data is up to date.")
 		}
 	}
-	ready = true // Let the emitter know we have data...
 }
 
+// Go routine that polls until *control goes false.
 func poller(control *bool, finished chan bool, apiUrl string, apiVersion string, userAgent string) {
-	log.Print("Starting poller...")
+	log.Info("Starting poller...")
 	for *control {
-		refreshData(apiUrl, apiVersion, userAgent) // Todo: Make this async. Lock it so it doesn't run out of control.
-		log.Print("refreshData() returned")
-		time.Sleep(5 * time.Second)
+		refreshData(apiUrl, apiVersion, userAgent)
+		log.Debug("refreshData() returned")
+		time.Sleep(60 * time.Second)
 	}
-	log.Printf("Poller ending")
+	log.Info("Poller ending")
 	finished <- true
 }
