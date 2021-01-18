@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func emit(location Location, obsCache *ObservationCache) {
+func emit(location Location, obsCache *ObservationCache) string {
 	var obs Observation
 	now := time.Now().UTC()
 	obsCache.mu.RLock()
@@ -45,10 +45,12 @@ func emit(location Location, obsCache *ObservationCache) {
 	if err != nil {
 		log.Fatal("Brain damage! Can't marshal internal structure to JSON.")
 	}
-	fmt.Println(string(jsonData))
+	return (string(jsonData))
 }
 
-// waits for observations to arrive. Blocks until they are present.
+// waits for observations to arrive. Returns true or false
+// false if not enough observations are present.
+// true if the number of obs matches the fc cache.
 func waitForObservations(fc *ObservationCache, locs []Location) bool {
 	fc.mu.RLock()
 	if len(fc.observations) == len(locs) {
@@ -74,7 +76,7 @@ func emitter(control *bool, finished chan bool, emitterInterval time.Duration, l
 		if emitNeeded {
 			log.Debug("Emit triggered")
 			for _, loc := range locs {
-				emit(loc, obs)
+				fmt.Print(emit(loc, obs))
 			}
 			obs.mu.Lock()
 			obs.lastEmitted = time.Now().UTC()

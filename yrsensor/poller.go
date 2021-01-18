@@ -9,6 +9,18 @@ import (
 	"time"
 )
 
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+var (
+	Client httpClient
+)
+
+func init() {
+	Client = &http.Client{}
+}
+
 // Helper that just run the GET request on a URL.
 func request(url string, queryParams map[string]string, userAgent string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
@@ -27,7 +39,7 @@ func request(url string, queryParams map[string]string, userAgent string) (*http
 	req.Header.Set("User-Agent", userAgent)
 
 	// Send request
-	res, err := http.DefaultClient.Do(req)
+	res, err := Client.Do(req)
 	// Pass down the result, note that the caller must check for errors.
 	return res, err
 }

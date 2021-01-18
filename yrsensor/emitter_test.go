@@ -33,8 +33,6 @@ func Test_waitForObservations(t *testing.T) {
 	}
 
 	assert.False(t, waitForObservations(&fc, locs))
-	time.Sleep(50 * time.Millisecond)
-	// ok until here:
 	fc.observations = make(map[string]ObservationTimeSeries)
 	fc.observations[ID] = obs
 	assert.True(t, waitForObservations(&fc, locs))
