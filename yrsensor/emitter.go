@@ -49,24 +49,24 @@ func emit(location Location, obsCache *ObservationCache) {
 }
 
 // waits for observations to arrive. Blocks until they are present.
-func waitForObservations(fc *ObservationCache, locs []Location) {
-	for true {
-		fc.mu.RLock()
-		if len(fc.observations) == len(locs) {
-			log.Debug("Observations are present. Starting emit loop.")
-			fc.mu.RUnlock()
-			break
-		} else {
-			log.Debug("Observations are not yet present. Sleeping.")
-		}
+func waitForObservations(fc *ObservationCache, locs []Location) bool {
+	fc.mu.RLock()
+	if len(fc.observations) == len(locs) {
+		log.Debug("Observations are present.")
 		fc.mu.RUnlock()
-		time.Sleep(100 * time.Millisecond)
+		return true
+	} else {
+		log.Debug("Observations are not yet present.")
 	}
+	fc.mu.RUnlock()
+	return false
 }
 
 func emitter(control *bool, finished chan bool, emitterInterval time.Duration, locs []Location, obs *ObservationCache) {
 	log.Info("Starting emitter")
-	waitForObservations(obs, locs)
+	for waitForObservations(obs, locs) == false {
+		time.Sleep(100 * time.Millisecond)
+	}
 	for *control {
 		obs.mu.RLock()
 		emitNeeded := time.Now().UTC().Sub(obs.lastEmitted) > emitterInterval
