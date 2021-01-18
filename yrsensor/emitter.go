@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-func emit(location Location) {
+func emit(location Location, obsCache *ObservationCache) {
 	var obs Observation
 	now := time.Now().UTC()
-	forecastsCache.mu.RLock()
-	defer forecastsCache.mu.RUnlock()
-	ts := forecastsCache.observations[location.Id].ts
+	obsCache.mu.RLock()
+	defer obsCache.mu.RUnlock()
+	ts := obsCache.observations[location.Id].ts
 	firstAfter := 0
 
 	// Find out where we are in the time series.
@@ -49,39 +49,39 @@ func emit(location Location) {
 }
 
 // waits for observations to arrive. Blocks until they are present.
-func waitForObservations() {
+func waitForObservations(fc *ObservationCache, locs []Location) {
 	for true {
-		forecastsCache.mu.RLock()
-		if len(forecastsCache.observations) == len(locations) {
+		fc.mu.RLock()
+		if len(fc.observations) == len(locs) {
 			log.Debug("Observations are present. Starting emit loop.")
-			forecastsCache.mu.RUnlock()
+			fc.mu.RUnlock()
 			break
 		} else {
 			log.Debug("Observations are not yet present. Sleeping.")
 		}
-		forecastsCache.mu.RUnlock()
-		time.Sleep(time.Second)
+		fc.mu.RUnlock()
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
-func emitter(control *bool, finished chan bool, emitterInterval time.Duration) {
+func emitter(control *bool, finished chan bool, emitterInterval time.Duration, locs []Location, obs *ObservationCache) {
 	log.Info("Starting emitter")
-	waitForObservations()
+	waitForObservations(obs, locs)
 	for *control {
-		forecastsCache.mu.RLock()
-		emitNeeded := time.Now().UTC().Sub(forecastsCache.lastEmitted) > emitterInterval
-		forecastsCache.mu.RUnlock()
+		obs.mu.RLock()
+		emitNeeded := time.Now().UTC().Sub(obs.lastEmitted) > emitterInterval
+		obs.mu.RUnlock()
 		if emitNeeded {
 			log.Debug("Emit triggered")
-			for _, loc := range locations {
-				emit(loc)
+			for _, loc := range locs {
+				emit(loc, obs)
 			}
-			forecastsCache.mu.Lock()
-			forecastsCache.lastEmitted = time.Now().UTC()
-			forecastsCache.mu.Unlock()
+			obs.mu.Lock()
+			obs.lastEmitted = time.Now().UTC()
+			obs.mu.Unlock()
 		} else {
 			log.Debug("No emit needed at this point")
-			time.Sleep(10 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 	log.Info("Emitter ending.")

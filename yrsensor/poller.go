@@ -87,18 +87,18 @@ func transformForecast(forecast LocationForecast) ObservationTimeSeries {
 }
 
 // Checks all the time series and updates them if the data is outdated.
-func refreshData(apiUrl string, apiVersion string, userAgent string) {
-	log.Debug("Polling the virtual nodes. # of nodes: ", len(locations))
-	for _, loc := range locations {
+func refreshData(apiUrl string, apiVersion string, userAgent string, locs []Location, obsCache *ObservationCache) {
+	log.Debug("Polling the virtual nodes. # of nodes: ", len(locs))
+	for _, loc := range locs {
 		log.Debug("Polling ", loc.Id)
-		forecastsCache.mu.RLock()
-		updateNeeded := forecastsCache.observations[loc.Id].expires.Before(time.Now().UTC())
-		forecastsCache.mu.RUnlock()
+		obsCache.mu.RLock()
+		updateNeeded := obsCache.observations[loc.Id].expires.Before(time.Now().UTC())
+		obsCache.mu.RUnlock()
 
 		if updateNeeded {
 			log.Debug("Outdated or no data found. Refreshing ", loc.Id)
 			// locking needed?
-			log.Debugf("Current data has expiry %v", forecastsCache.observations[loc.Id].expires)
+			log.Debugf("Current data has expiry %v", obsCache.observations[loc.Id].expires)
 			// No data or invalid data. Refresh the dataset we have.
 			forecast, err := getNewForecast(loc, apiUrl, apiVersion, userAgent)
 			if err != nil {
@@ -106,9 +106,9 @@ func refreshData(apiUrl string, apiVersion string, userAgent string) {
 				time.Sleep(10 * time.Second)
 			}
 			m := transformForecast(forecast)
-			forecastsCache.mu.Lock()
-			forecastsCache.observations[loc.Id] = m
-			forecastsCache.mu.Unlock()
+			obsCache.mu.Lock()
+			obsCache.observations[loc.Id] = m
+			obsCache.mu.Unlock()
 		} else {
 			log.Debug("Current data is up to date.")
 		}
@@ -116,10 +116,10 @@ func refreshData(apiUrl string, apiVersion string, userAgent string) {
 }
 
 // Go routine that polls until *control goes false.
-func poller(control *bool, finished chan bool, apiUrl string, apiVersion string, userAgent string) {
+func poller(control *bool, finished chan bool, apiUrl string, apiVersion string, userAgent string, locs []Location, obsCache *ObservationCache) {
 	log.Info("Starting poller...")
 	for *control {
-		refreshData(apiUrl, apiVersion, userAgent)
+		refreshData(apiUrl, apiVersion, userAgent, locs, obsCache)
 		log.Debug("refreshData() returned")
 		time.Sleep(60 * time.Second)
 	}
