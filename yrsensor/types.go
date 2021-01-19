@@ -30,9 +30,8 @@ type Observation struct {
 }
 
 /* Most code below is (c) 2020 Andreas Palm and used under a MIT licence
-
-
- */
+   Source at https://github.com/zapling/yr.no-golang-client
+*/
 
 // LocationForecast => METJSONForecast
 type LocationForecast struct {
