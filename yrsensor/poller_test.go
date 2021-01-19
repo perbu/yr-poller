@@ -92,7 +92,7 @@ func (c *ClientMock) Do(req *http.Request) (*http.Response, error) {
 // Not the greatest test, just tests if it runs and looks okish.
 func Test_request(t *testing.T) {
 	const URL = "test://randomurl.com/"
-	const URL_PARAMS = "?foo=bar"
+	const URL_PARAMS = "?a=alfa&b=beta&c=charlie"
 	const USERAGENT = "myuseragent"
 	const RESPONSE = "This is a response"
 	Client = &ClientMock{
@@ -101,7 +101,9 @@ func Test_request(t *testing.T) {
 		},
 	}
 	params := map[string]string{
-		"foo": "bar",
+		"a": "alfa",
+		"b": "beta",
+		"c": "charlie",
 	}
 	res, err := request(URL, params, USERAGENT)
 	assert.Nil(t, err)
@@ -116,6 +118,11 @@ func Test_request(t *testing.T) {
 }
 
 func Test_getNewForecast(t *testing.T) {
+	const URL = "test://test.yr/"
+	const URL_PARAMS = "?lat=10.0&lon=20.0"
+	const USERAGENT = "myuseragent"
+	const RESPONSE = "This is a response"
+
 	var forecast LocationForecast
 
 	Client = &ClientMock{

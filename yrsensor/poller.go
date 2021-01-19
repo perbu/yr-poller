@@ -9,17 +9,15 @@ import (
 	"time"
 )
 
-type httpClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 // For dependency injection during test:
 var (
 	Client httpClient
 )
 
 func init() {
-	Client = &http.Client{}
+	Client = &http.Client{
+		Timeout: time.Second * 20,
+	}
 }
 
 // Helper that just run the GET request on a URL.
@@ -46,7 +44,7 @@ func request(url string, queryParams map[string]string, userAgent string) (*http
 }
 
 // Fetches a new forecast and replaces the one we have.
-// It takes a location and only uses the location id
+// It takes a location a constructs the URL from the lat/long.
 func getNewForecast(loc Location, apiUrl string, apiVersion string, userAgent string) (LocationForecast, error) {
 	var forecast LocationForecast
 
