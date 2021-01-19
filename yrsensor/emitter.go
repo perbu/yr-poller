@@ -37,8 +37,8 @@ func emit(location Location, obsCache *ObservationCache, when time.Time) string 
 		obs.Id = location.Id
 		obs.Time = when
 		// Interpolating here:
-		obs.AirTemperature = last.AirTemperature*factor + last.AirTemperature*(1.0-factor)
-		obs.AirPressureAtSeaLevel = last.AirPressureAtSeaLevel*factor + last.AirPressureAtSeaLevel*(1.0-factor)
+		obs.AirTemperature = last.AirTemperature*factor + first.AirTemperature*(1.0-factor)
+		obs.AirPressureAtSeaLevel = last.AirPressureAtSeaLevel*factor + first.AirPressureAtSeaLevel*(1.0-factor)
 	}
 	jsonData, err := json.MarshalIndent(obs, "", "  ")
 	if err != nil {

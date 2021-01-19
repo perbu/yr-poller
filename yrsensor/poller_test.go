@@ -51,9 +51,9 @@ type ClientMock struct {
 	response map[string]string
 }
 
-func generateLocation() Location {
+func generateLocation(id string) Location {
 	loc := Location{
-		Id:   "nada",
+		Id:   id,
 		Lat:  20.0,
 		Long: 10.0,
 	}
@@ -98,7 +98,7 @@ func Test_getNewForecast(t *testing.T) {
 	Client = &ClientMock{
 		response: make(map[string]string),
 	}
-	loc := generateLocation()
+	loc := generateLocation("nada")
 	params := map[string]string{
 		"lat": fmt.Sprintf("%f", loc.Lat),
 		"lon": fmt.Sprintf("%f", loc.Long),

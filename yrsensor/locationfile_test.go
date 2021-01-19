@@ -1,6 +1,7 @@
 package yrsensor
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -94,6 +95,9 @@ func Test_readLocations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := readLocations(tt.args)
+			if err != nil {
+				fmt.Printf("Error (handled) from readLocations: %v\n", err.Error())
+			}
 			if (err != nil) != tt.wantErr {
 				t.Errorf("readLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return
