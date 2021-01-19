@@ -13,10 +13,16 @@ func setupLogging() {
 func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration, locationFileLocation string) {
 	var locations []Location
 	var forecastsCache ObservationCache
-
+	var err error
 	setupLogging()
 	log.Info("Yr poller 0.0.1")
-	locations = readLocations(locationFileLocation)
+	locations, err = readLocationsFromPath(locationFileLocation)
+	if err != nil {
+		log.Errorf("could not parse location file: %v", err.Error())
+		log.Error("Example location file:")
+		log.Error(locationFileExample())
+		log.Fatal("Aborting")
+	}
 	for _, loc := range locations {
 		log.Debugf("Polling location set: %s (%f, %f)", loc.Id, loc.Lat, loc.Long)
 	}

@@ -7,8 +7,7 @@ import (
 )
 
 /*
-  Poller deamon.
-
+  Poller daemon.
 */
 
 const API_URL = "https://api.met.no/weatherapi"

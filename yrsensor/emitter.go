@@ -7,9 +7,8 @@ import (
 	"time"
 )
 
-func emit(location Location, obsCache *ObservationCache) string {
+func emit(location Location, obsCache *ObservationCache, when time.Time) string {
 	var obs Observation
-	now := time.Now().UTC()
 	obsCache.mu.RLock()
 	defer obsCache.mu.RUnlock()
 	ts := obsCache.observations[location.Id].ts
@@ -17,7 +16,7 @@ func emit(location Location, obsCache *ObservationCache) string {
 
 	// Find out where we are in the time series.
 	for i := range ts {
-		if ts[i].Time.After(now) {
+		if ts[i].Time.After(when) {
 			firstAfter = i
 			break
 		}
@@ -33,10 +32,10 @@ func emit(location Location, obsCache *ObservationCache) string {
 		last := ts[firstAfter]
 		first := ts[firstAfter-1]
 		timeDelta := last.Time.Sub(first.Time).Seconds() // Typically 60mins
-		howFarInto := now.Sub(first.Time).Seconds()
+		howFarInto := when.Sub(first.Time).Seconds()
 		factor := float64(howFarInto) / float64(timeDelta)
 		obs.Id = location.Id
-		obs.Time = now
+		obs.Time = when
 		// Interpolating here:
 		obs.AirTemperature = last.AirTemperature*factor + last.AirTemperature*(1.0-factor)
 		obs.AirPressureAtSeaLevel = last.AirPressureAtSeaLevel*factor + last.AirPressureAtSeaLevel*(1.0-factor)
@@ -76,7 +75,7 @@ func emitter(control *bool, finished chan bool, emitterInterval time.Duration, l
 		if emitNeeded {
 			log.Debug("Emit triggered")
 			for _, loc := range locs {
-				fmt.Print(emit(loc, obs))
+				fmt.Print(emit(loc, obs, time.Now().UTC()))
 			}
 			obs.mu.Lock()
 			obs.lastEmitted = time.Now().UTC()

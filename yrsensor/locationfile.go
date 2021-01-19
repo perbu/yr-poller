@@ -3,21 +3,49 @@ package yrsensor
 import (
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
+	"io"
 	"os"
 )
 
-func readLocations(locationFilePath string) []Location {
+func readLocations(locationsFile io.Reader) ([]Location, error) {
+	var data []Location
+	decoder := json.NewDecoder(locationsFile)
+	decoder.DisallowUnknownFields() // force errors on unknown fields.
+	err := decoder.Decode(&data)
+	return data, err
+}
+
+func readLocationsFromPath(locationFilePath string) ([]Location, error) {
+	var data []Location
 	locationsFile, err := os.Open(locationFilePath)
 	if err != nil {
-		log.Fatalf("While opening file: %s", err.Error())
-	} else {
-		log.Debug("Location file successfully opened.")
+		return data, err
 	}
-	defer locationsFile.Close()
-	locationData, _ := ioutil.ReadAll(locationsFile)
-	var data []Location
-	json.Unmarshal(locationData, &data)
+	data, parseErr := readLocations(locationsFile)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	err = locationsFile.Close()
+	if err != nil {
+		log.Panicf("closing file: %v", err.Error())
+	}
+	return data, nil
+}
 
-	return data
+func locationFileExample() string {
+	return `
+[
+  {
+    "id": "tryvannstua",
+    "lat": 59.9981362,
+    "long": 10.6660856
+  },
+  {
+    "id": "skrindo",
+    "lat": 60.6605926,
+    "long": 8.5740604
+  }
+]
+`
+
 }
