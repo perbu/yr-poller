@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	yrsensor "github.com/perbu/yrpoller/yrsensor"
+	"github.com/perbu/yrpoller/yrsensor"
 	"time"
 )
 

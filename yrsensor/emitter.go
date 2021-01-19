@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Emit some JSON constituting a virtual sensor readout.
 func emit(location Location, obsCache *ObservationCache, when time.Time) string {
 	var obs Observation
 	obsCache.mu.RLock()
@@ -44,7 +45,7 @@ func emit(location Location, obsCache *ObservationCache, when time.Time) string 
 	if err != nil {
 		log.Fatal("Brain damage! Can't marshal internal structure to JSON.")
 	}
-	return (string(jsonData))
+	return string(jsonData)
 }
 
 // waits for observations to arrive. Returns true or false

@@ -40,7 +40,7 @@ func generateObservationCache() ObservationCache {
 		lastEmitted: time.Time{},
 		mu:          sync.RWMutex{},
 		observations: map[string]ObservationTimeSeries{
-			ID: ObservationTimeSeries{
+			ID: {
 				ts: [100]Observation{
 					{Id: ID,
 						Time:                  time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
