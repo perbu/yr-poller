@@ -24,7 +24,7 @@ func Test_waitForObservations(t *testing.T) {
 		},
 		expires: time.Now().UTC(),
 	}
-	locs := generateLocations(ID)
+	locs := generateTestLocations(ID)
 
 	assert.False(t, waitForObservations(&fc, locs))
 	fc.observations = make(map[string]ObservationTimeSeries)
@@ -33,7 +33,7 @@ func Test_waitForObservations(t *testing.T) {
 
 }
 
-func generateObservationCache() ObservationCache {
+func generateTestObservationCache() ObservationCache {
 	const ID = "tryvannstua"
 
 	fc := ObservationCache{
@@ -60,7 +60,7 @@ func generateObservationCache() ObservationCache {
 	return fc
 }
 
-func generateLocations(id string) []Location {
+func generateTestLocations(id string) []Location {
 
 	locs := []Location{
 		{
@@ -72,17 +72,20 @@ func generateLocations(id string) []Location {
 	return locs
 }
 
-func Test_emit(t *testing.T) {
-	const ID = "tryvannstua"
-	const expectedResult = `{
+func generateTestEmitJson() string {
+	return `{
   "Id": "tryvannstua",
   "time": "2020-01-01T00:30:00Z",
   "air_temperature": -15.0,
-  "air_pressure_at_sealevel": 1050.0
-}`
+  "air_pressure_at_sealevel": 1050.0  }`
+}
+
+func Test_emit(t *testing.T) {
+	const ID = "tryvannstua"
+
 	when := time.Date(2020, 1, 1, 0, 30, 0, 0, time.UTC)
-	fc := generateObservationCache()
-	loc := generateLocation(ID)
+	fc := generateTestObservationCache()
+	loc := generateTestLocation(ID)
 	actual := emit(loc, &fc, when)
-	assert.JSONEq(t, expectedResult, actual, "JSON comparison from emit failed")
+	assert.JSONEq(t, generateTestEmitJson(), actual, "JSON comparison from emit failed")
 }

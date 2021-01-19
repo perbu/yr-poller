@@ -13,6 +13,7 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// For dependency injection during test:
 var (
 	Client httpClient
 )

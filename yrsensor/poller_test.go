@@ -11,11 +11,10 @@ import (
 	"time"
 )
 
-func generateForecast() LocationForecast {
-
+func generateTestForecast() LocationForecast {
 	data := []Timestep{
 		{
-			Time: time.Now().UTC().String(),
+			Time: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
 			Data: TimestepData{
 				InstantData{
 					Details: ForecastTimeInstant{
@@ -26,7 +25,7 @@ func generateForecast() LocationForecast {
 			},
 		},
 		{
-			Time: time.Now().UTC().String(),
+			Time: time.Date(2020, 1, 1, 1, 0, 0, 0, time.UTC).Format(time.RFC3339),
 			Data: TimestepData{
 				InstantData{
 					Details: ForecastTimeInstant{
@@ -38,20 +37,39 @@ func generateForecast() LocationForecast {
 		},
 	}
 	fc := LocationForecast{
-		Type: "",
 		Properties: Properties{
 			Timeseries: data,
 		},
-		Expires: time.Time{},
+		Expires: time.Date(2020, 1, 1, 2, 0, 0, 0, time.UTC),
 	}
 	return fc
+}
+
+// Match whats above
+func generateTestObservationTimeSeries() ObservationTimeSeries {
+	obs := ObservationTimeSeries{
+		expires: time.Date(2020, 1, 1, 2, 0, 0, 0, time.UTC),
+		ts: [100]Observation{
+			{
+				Time:                  time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+				AirTemperature:        -5.0,
+				AirPressureAtSeaLevel: 1023.3,
+			},
+			{
+				Time:                  time.Date(2020, 1, 1, 1, 0, 0, 0, time.UTC),
+				AirTemperature:        -7.5,
+				AirPressureAtSeaLevel: 1110.5,
+			},
+		},
+	}
+	return obs
 }
 
 type ClientMock struct {
 	response map[string]string
 }
 
-func generateLocation(id string) Location {
+func generateTestLocation(id string) Location {
 	loc := Location{
 		Id:   id,
 		Lat:  20.0,
@@ -61,35 +79,40 @@ func generateLocation(id string) Location {
 }
 
 func (c *ClientMock) Do(req *http.Request) (*http.Response, error) {
-	fc := generateForecast()
-	bodyBytes, err := json.Marshal(fc)
+
+	bodyBytes := []byte(c.response[req.URL.String()])
 	resp := &http.Response{
 		Body:       ioutil.NopCloser(bytes.NewBuffer(bodyBytes)),
 		StatusCode: 200,
 		Request:    req,
 	}
-	return resp, err
+	return resp, nil
 }
 
 // Not the greatest test, just tests if it runs and looks okish.
 func Test_request(t *testing.T) {
-	const URL = "https://crazyurls.com"
+	const URL = "test://randomurl.com/"
+	const URL_PARAMS = "?foo=bar"
 	const USERAGENT = "myuseragent"
+	const RESPONSE = "This is a response"
 	Client = &ClientMock{
-		response: make(map[string]string),
+		response: map[string]string{
+			URL + URL_PARAMS: RESPONSE,
+		},
 	}
-
 	params := map[string]string{
-		"foo": "quux",
-		"bar": "zoo",
+		"foo": "bar",
 	}
-
 	res, err := request(URL, params, USERAGENT)
 	assert.Nil(t, err)
 	assert.NotNil(t, res)
 	assert.NotNil(t, res.Body)
 	assert.NotNil(t, res.Status)
 	assert.Equal(t, 200, res.StatusCode, "Status 200 expected")
+	body, err := ioutil.ReadAll(res.Body)
+	assert.Nil(t, err, "could not read body")
+	assert.Equal(t, []byte(RESPONSE), body)
+
 }
 
 func Test_getNewForecast(t *testing.T) {
@@ -98,13 +121,13 @@ func Test_getNewForecast(t *testing.T) {
 	Client = &ClientMock{
 		response: make(map[string]string),
 	}
-	loc := generateLocation("nada")
+	loc := generateTestLocation("nada")
 	params := map[string]string{
 		"lat": fmt.Sprintf("%f", loc.Lat),
 		"lon": fmt.Sprintf("%f", loc.Long),
 	}
 
-	res, err := request("https://www.yr.no/mock/getforecast", params, "myuseragent")
+	res, err := request("test://www.yr.no/mock/getforecast", params, "myuseragent")
 	assert.Nil(t, err)
 	assert.NotNil(t, res)
 	assert.NotNil(t, res.Body)
@@ -115,4 +138,12 @@ func Test_getNewForecast(t *testing.T) {
 	assert.Nil(t, err, "Could not ready body of response.")
 	err = json.Unmarshal(body, &forecast)
 	assert.Nil(t, err, "Unmarshalling failure.")
+}
+
+func Test_transformForecast(t *testing.T) {
+	forecast := generateTestForecast()
+	obsTimeSeries := transformForecast(forecast)
+	expected := generateTestObservationTimeSeries()
+	assert.Equal(t, expected, obsTimeSeries)
+	// expected := ObservationTimeSeries{}
 }
