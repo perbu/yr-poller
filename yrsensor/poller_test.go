@@ -3,7 +3,6 @@ package yrsensor
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -66,7 +65,8 @@ func generateTestObservationTimeSeries() ObservationTimeSeries {
 }
 
 type ClientMock struct {
-	response map[string]string
+	response map[string][]byte
+	expires  map[string]time.Time
 }
 
 func generateTestLocation(id string) Location {
@@ -79,13 +79,24 @@ func generateTestLocation(id string) Location {
 }
 
 func (c *ClientMock) Do(req *http.Request) (*http.Response, error) {
+	var expiresHeader string
+	bodyBytes := c.response[req.URL.String()]
 
-	bodyBytes := []byte(c.response[req.URL.String()])
+	expires, ok := c.expires[req.URL.String()]
+	if ok == false {
+		// default is one hour on expiry.
+		expiresHeader = time.Now().Add(time.Hour).UTC().Format(http.TimeFormat)
+	} else {
+		expiresHeader = expires.Format(http.TimeFormat)
+	}
 	resp := &http.Response{
 		Body:       ioutil.NopCloser(bytes.NewBuffer(bodyBytes)),
 		StatusCode: 200,
 		Request:    req,
+		Header:     make(http.Header, 1),
 	}
+	resp.Header.Add("Expires", expiresHeader)
+
 	return resp, nil
 }
 
@@ -94,10 +105,10 @@ func Test_request(t *testing.T) {
 	const URL = "test://randomurl.com/"
 	const URL_PARAMS = "?a=alfa&b=beta&c=charlie"
 	const USERAGENT = "myuseragent"
-	const RESPONSE = "This is a response"
+	response := []byte("this is a response")
 	Client = &ClientMock{
-		response: map[string]string{
-			URL + URL_PARAMS: RESPONSE,
+		response: map[string][]byte{
+			URL + URL_PARAMS: response,
 		},
 	}
 	params := map[string]string{
@@ -113,38 +124,33 @@ func Test_request(t *testing.T) {
 	assert.Equal(t, 200, res.StatusCode, "Status 200 expected")
 	body, err := ioutil.ReadAll(res.Body)
 	assert.Nil(t, err, "could not read body")
-	assert.Equal(t, []byte(RESPONSE), body)
+	assert.Equal(t, response, body)
 
 }
 
 func Test_getNewForecast(t *testing.T) {
-	const URL = "test://test.yr/"
-	const URL_PARAMS = "?lat=10.0&lon=20.0"
+	const URL = "test://test.yr"
+	const API_VERSION = "2"
+	const URL_PARAMS = "?lat=20.000000&lon=10.000000"
 	const USERAGENT = "myuseragent"
-	const RESPONSE = "This is a response"
 
-	var forecast LocationForecast
+	generatedForecast := generateTestForecast()
+
+	var forecastBody, err = json.Marshal(generatedForecast)
 
 	Client = &ClientMock{
-		response: make(map[string]string),
+		response: map[string][]byte{
+			URL + "/locationforecast/" + API_VERSION + "/compact" + URL_PARAMS: forecastBody,
+		},
 	}
 	loc := generateTestLocation("nada")
-	params := map[string]string{
-		"lat": fmt.Sprintf("%f", loc.Lat),
-		"lon": fmt.Sprintf("%f", loc.Long),
-	}
 
-	res, err := request("test://www.yr.no/mock/getforecast", params, "myuseragent")
+	forecast, err := getNewForecast(loc, URL, API_VERSION, USERAGENT)
 	assert.Nil(t, err)
-	assert.NotNil(t, res)
-	assert.NotNil(t, res.Body)
+	assert.NotNil(t, forecast)
 
-	assert.Equal(t, 200, res.StatusCode, "Status 200 expected")
+	assert.Equal(t, len(generatedForecast.Properties.Timeseries), len(forecast.Properties.Timeseries))
 
-	body, err := ioutil.ReadAll(res.Body)
-	assert.Nil(t, err, "Could not ready body of response.")
-	err = json.Unmarshal(body, &forecast)
-	assert.Nil(t, err, "Unmarshalling failure.")
 }
 
 func Test_transformForecast(t *testing.T) {
