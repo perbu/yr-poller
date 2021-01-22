@@ -17,7 +17,7 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	var locations []Location
 	var forecastsCache ObservationCache
 	var err error
-	setupLogging(log.InfoLevel)
+	setupLogging(log.DebugLevel)
 	log.Info("Yr poller 0.0.1")
 	locations, err = readLocationsFromPath(locationFileLocation)
 	if err != nil {

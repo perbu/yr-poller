@@ -3,12 +3,13 @@ package yrsensor
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/service/timestreamwrite"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
 
 // Emit some JSON constituting a virtual sensor readout.
-func emit(location Location, obsCache *ObservationCache, when time.Time) string {
+func emit(session *timestreamwrite.TimestreamWrite, location Location, obsCache *ObservationCache, when time.Time) string {
 	var obs Observation
 	obsCache.mu.RLock()
 	defer obsCache.mu.RUnlock()
@@ -41,7 +42,8 @@ func emit(location Location, obsCache *ObservationCache, when time.Time) string 
 		obs.AirTemperature = last.AirTemperature*factor + first.AirTemperature*(1.0-factor)
 		obs.AirPressureAtSeaLevel = last.AirPressureAtSeaLevel*factor + first.AirPressureAtSeaLevel*(1.0-factor)
 	}
-	jsonData, err := json.MarshalIndent(obs, "", "  ")
+	jsonData, err := json.MarshalIndent(obs, "TS: ", "  ")
+	timestreamWriteObservation(session, obs)
 	if err != nil {
 		log.Fatal("Brain damage! Can't marshal internal structure to JSON.")
 	}
@@ -66,6 +68,8 @@ func waitForObservations(fc *ObservationCache, locs []Location) bool {
 
 func emitter(control *bool, finished chan bool, emitterInterval time.Duration, locs []Location, obs *ObservationCache) {
 	log.Info("Starting emitter")
+	session := createTimestreamWriteSession()
+	checkAndCreateTables(session)
 	for waitForObservations(obs, locs) == false {
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -76,7 +80,7 @@ func emitter(control *bool, finished chan bool, emitterInterval time.Duration, l
 		if emitNeeded {
 			log.Debug("Emit triggered")
 			for _, loc := range locs {
-				fmt.Print(emit(loc, obs, time.Now().UTC()))
+				fmt.Print(emit(session, loc, obs, time.Now().UTC()))
 			}
 			obs.mu.Lock()
 			obs.lastEmitted = time.Now().UTC()
