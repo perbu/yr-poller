@@ -33,45 +33,6 @@ func Test_waitForObservations(t *testing.T) {
 
 }
 
-func generateTestObservationCache() ObservationCache {
-	const ID = "tryvannstua"
-
-	fc := ObservationCache{
-		lastEmitted: time.Time{},
-		mu:          sync.RWMutex{},
-		observations: map[string]ObservationTimeSeries{
-			ID: {
-				ts: [100]Observation{
-					{Id: ID,
-						Time:                  time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
-						AirTemperature:        -10.0,
-						AirPressureAtSeaLevel: 1000.0,
-					},
-					{Id: ID,
-						Time:                  time.Date(2020, 1, 1, 1, 0, 0, 0, time.UTC),
-						AirTemperature:        -20.0,
-						AirPressureAtSeaLevel: 1100.0,
-					},
-				},
-				expires: time.Date(2020, 1, 1, 2, 0, 0, 0, time.UTC),
-			},
-		},
-	}
-	return fc
-}
-
-func generateTestLocations(id string) []Location {
-
-	locs := []Location{
-		{
-			Id:   id,
-			Lat:  10.0,
-			Long: 20.0,
-		},
-	}
-	return locs
-}
-
 func generateTestEmitJson() string {
 	return `{
   "Id": "tryvannstua",
@@ -84,7 +45,7 @@ func Test_emit(t *testing.T) {
 	const ID = "tryvannstua"
 
 	when := time.Date(2020, 1, 1, 0, 30, 0, 0, time.UTC)
-	fc := generateTestObservationCache()
+	fc := generateTestObservationCache(ID, 0)
 	loc := generateTestLocation(ID)
 	actual := emit(loc, &fc, when)
 	assert.JSONEq(t, generateTestEmitJson(), actual, "JSON comparison from emit failed")

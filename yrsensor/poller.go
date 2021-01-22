@@ -69,11 +69,11 @@ func getNewForecast(loc Location, apiUrl string, apiVersion string, userAgent st
 	}
 	err = json.Unmarshal(body, &forecast)
 	if err != nil {
-		log.Fatalf("Error unmarshaling JSON from %s: %s", url, err.Error())
+		log.Fatalf("error unmarshaling JSON from %s: %s", url, err.Error())
 	}
 	forecast.Expires, err = http.ParseTime(res.Header.Get("Expires"))
 	if err != nil {
-		panic("Could not parse expires header")
+		panic("could not parse expires header")
 	}
 	return forecast, nil
 }
@@ -120,6 +120,7 @@ func refreshData(apiUrl string, apiVersion string, userAgent string, locs []Loca
 			obsCache.mu.Lock()
 			obsCache.observations[loc.Id] = m
 			obsCache.mu.Unlock()
+			log.Debug("Observation cache update with new data")
 		} else {
 			log.Debug("Current data is up to date.")
 		}
@@ -132,7 +133,7 @@ func poller(control *bool, finished chan bool, apiUrl string, apiVersion string,
 	for *control {
 		refreshData(apiUrl, apiVersion, userAgent, locs, obsCache)
 		log.Debug("refreshData() returned")
-		time.Sleep(60 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	log.Info("Poller ending")
 	finished <- true

@@ -2,19 +2,22 @@ package yrsensor
 
 import (
 	log "github.com/sirupsen/logrus"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
-func setupLogging() {
+func setupLogging(level log.Level) {
 	log.SetFormatter(&log.TextFormatter{})
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(level)
 }
 
 func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration, locationFileLocation string) {
 	var locations []Location
 	var forecastsCache ObservationCache
 	var err error
-	setupLogging()
+	setupLogging(log.InfoLevel)
 	log.Info("Yr poller 0.0.1")
 	locations, err = readLocationsFromPath(locationFileLocation)
 	if err != nil {
@@ -33,9 +36,18 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	emitterFinished := make(chan bool)
 	go poller(&pollerControl, pollerFinished, apiUrl, apiVersion, userAgent, locations, &forecastsCache)
 	go emitter(&emitterControl, emitterFinished, emitterInterval, locations, &forecastsCache)
-	time.Sleep(5 * time.Second)
 	// pollerControl = false
+	// Listen for signals:
+	mainControl := make(chan os.Signal)
+	signal.Notify(mainControl, os.Interrupt, syscall.SIGINT)
+	signal.Notify(mainControl, os.Interrupt, syscall.SIGTERM)
 	log.Info("Daemon running")
+	<-mainControl
+	log.Info("SIGTERM caught, winding down gracefully.")
+	pollerControl = false
+	emitterControl = false
 	<-pollerFinished
 	<-emitterFinished
+	log.Info("End of program")
+	os.Exit(0)
 }

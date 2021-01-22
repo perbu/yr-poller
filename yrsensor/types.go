@@ -95,7 +95,8 @@ type Timestep struct {
 
 // TimestepData => inline_model
 
-// Not sure about wanting to keep next data...
+// Not sure about wanting to keep next* data. De really only care about the
+// next hour or two.
 type TimestepData struct {
 	Instant InstantData `json:"instant"`
 	/* Next1Hours  Next1HoursData `json:"next_1_hours"`

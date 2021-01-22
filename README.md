@@ -51,4 +51,6 @@ Usage of ./poller:
 
 ## Todo
 
-Lots.
+* Expand of the sensors supported.
+* Add hooks to support pushing data into other places.
+
