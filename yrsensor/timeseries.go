@@ -1,5 +1,12 @@
 package yrsensor
 
+/*
+ Timeseries stuff, useing AWS Timestream.
+
+ With Go 1.6 we could drop the dependency on golang/x/net/http2.
+
+*/
+
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"

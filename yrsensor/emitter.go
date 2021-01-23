@@ -1,15 +1,14 @@
 package yrsensor
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/aws/aws-sdk-go/service/timestreamwrite"
+	"github.com/perbu/yrpoller/statushttp"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
 
 // Emit some JSON constituting a virtual sensor readout.
-func emit(session *timestreamwrite.TimestreamWrite, location Location, obsCache *ObservationCache, when time.Time) string {
+func emit(session *timestreamwrite.TimestreamWrite, location Location, obsCache *ObservationCache, when time.Time) {
 	var obs Observation
 	obsCache.mu.RLock()
 	defer obsCache.mu.RUnlock()
@@ -42,12 +41,12 @@ func emit(session *timestreamwrite.TimestreamWrite, location Location, obsCache 
 		obs.AirTemperature = last.AirTemperature*factor + first.AirTemperature*(1.0-factor)
 		obs.AirPressureAtSeaLevel = last.AirPressureAtSeaLevel*factor + first.AirPressureAtSeaLevel*(1.0-factor)
 	}
-	jsonData, err := json.MarshalIndent(obs, "TS: ", "  ")
-	timestreamWriteObservation(session, obs)
-	if err != nil {
-		log.Fatal("Brain damage! Can't marshal internal structure to JSON.")
+	// jsonData, err := json.MarshalIndent(obs, "TS: ", "  ")
+	if false {
+		// Todo: Enable again when stuff works.
+		timestreamWriteObservation(session, obs)
 	}
-	return string(jsonData)
+	return
 }
 
 // waits for observations to arrive. Returns true or false
@@ -66,7 +65,7 @@ func waitForObservations(fc *ObservationCache, locs []Location) bool {
 	return false
 }
 
-func emitter(control *bool, finished chan bool, emitterInterval time.Duration, locs []Location, obs *ObservationCache) {
+func emitter(control *bool, finished chan bool, emitterInterval time.Duration, locs []Location, obs *ObservationCache, ds *statushttp.DaemonStatus) {
 	log.Info("Starting emitter")
 	session := createTimestreamWriteSession()
 	checkAndCreateTables(session)
@@ -80,7 +79,9 @@ func emitter(control *bool, finished chan bool, emitterInterval time.Duration, l
 		if emitNeeded {
 			log.Debug("Emit triggered")
 			for _, loc := range locs {
-				fmt.Print(emit(session, loc, obs, time.Now().UTC()))
+				emit(session, loc, obs, time.Now().UTC())
+				log.Infof("emitting data for %s", loc.Id)
+				ds.IncEmit(loc.Id)
 			}
 			obs.mu.Lock()
 			obs.lastEmitted = time.Now().UTC()

@@ -51,6 +51,9 @@ Usage of ./poller:
 
 ## Todo
 
-* Expand of the sensors supported.
-* Add hooks to support pushing data into other places.
+ * Expand of the sensors supported.
+ * Listen to a http or https port and dump status and health --> own package?
+ * Cleanup timestream code
+ * Add tests to the timestream code - possibly painful to mock
+ 
 

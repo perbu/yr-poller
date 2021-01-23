@@ -21,9 +21,9 @@ func readLocationsFromPath(locationFilePath string) ([]Location, error) {
 	if err != nil {
 		return data, err
 	}
-	data, parseErr := readLocations(locationsFile)
-	if parseErr != nil {
-		return nil, parseErr
+	data, err = readLocations(locationsFile)
+	if err != nil {
+		return nil, err
 	}
 	err = locationsFile.Close()
 	if err != nil {

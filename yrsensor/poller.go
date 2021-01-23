@@ -3,6 +3,7 @@ package yrsensor
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/perbu/yrpoller/statushttp"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
@@ -98,7 +99,7 @@ func transformForecast(forecast LocationForecast) ObservationTimeSeries {
 }
 
 // Checks all the time series and updates them if the data is outdated.
-func refreshData(apiUrl string, apiVersion string, userAgent string, locs []Location, obsCache *ObservationCache) {
+func refreshData(apiUrl string, apiVersion string, userAgent string, locs []Location, obsCache *ObservationCache, ds *statushttp.DaemonStatus) {
 	log.Debug("Polling the virtual nodes. # of nodes: ", len(locs))
 	for _, loc := range locs {
 		log.Debug("Polling ", loc.Id)
@@ -114,13 +115,15 @@ func refreshData(apiUrl string, apiVersion string, userAgent string, locs []Loca
 			forecast, err := getNewForecast(loc, apiUrl, apiVersion, userAgent)
 			if err != nil {
 				log.Errorf("Got error on forecast: %s. Sleeping 10 sec.", err.Error())
+				ds.IncPollError(loc.Id, err.Error())
 				time.Sleep(10 * time.Second)
 			}
 			m := transformForecast(forecast)
 			obsCache.mu.Lock()
 			obsCache.observations[loc.Id] = m
 			obsCache.mu.Unlock()
-			log.Debug("Observation cache update with new data")
+			ds.IncPoll(loc.Id)
+			log.Info("Observation cache update with new data")
 		} else {
 			log.Debug("Current data is up to date.")
 		}
@@ -128,10 +131,10 @@ func refreshData(apiUrl string, apiVersion string, userAgent string, locs []Loca
 }
 
 // Go routine that polls until *control goes false.
-func poller(control *bool, finished chan bool, apiUrl string, apiVersion string, userAgent string, locs []Location, obsCache *ObservationCache) {
+func poller(control *bool, finished chan bool, apiUrl string, apiVersion string, userAgent string, locs []Location, obsCache *ObservationCache, ds *statushttp.DaemonStatus) {
 	log.Info("Starting poller...")
 	for *control {
-		refreshData(apiUrl, apiVersion, userAgent, locs, obsCache)
+		refreshData(apiUrl, apiVersion, userAgent, locs, obsCache, ds)
 		log.Debug("refreshData() returned")
 		time.Sleep(1 * time.Second)
 	}
