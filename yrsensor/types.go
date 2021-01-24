@@ -10,11 +10,12 @@ type EmitterConfig struct {
 	Control             bool
 	Finished            chan bool
 	EmitterInterval     time.Duration
-	Locations           []Location
+	Locations           Locations
 	ObservationCachePtr *ObservationCache
 	AwsRegion           string
 	AwsTimestreamDbname string
 	DaemonStatusPtr     *statushttp.DaemonStatus
+	mu                  sync.RWMutex
 }
 
 type PollerConfig struct {
@@ -23,15 +24,21 @@ type PollerConfig struct {
 	ApiUrl              string
 	ApiVersion          string
 	UserAgent           string
-	Locations           []Location
+	Locations           Locations
 	ObservationCachePtr *ObservationCache
 	DaemonStatusPtr     *statushttp.DaemonStatus
+	mu                  sync.RWMutex
 }
 
 type Location struct {
 	Id   string  `json:"id"`
 	Lat  float64 `json:"lat"`
 	Long float64 `json:"long"`
+}
+
+type Locations struct {
+	mu        sync.RWMutex
+	Locations []Location
 }
 
 type ObservationCache struct {

@@ -14,39 +14,48 @@ func setupLogging(level log.Level) {
 	log.SetLevel(level)
 }
 
-func addLocationsToStatus(ds *statushttp.DaemonStatus, locs []Location) {
-	for _, loc := range locs {
+func addLocationsToStatus(ds *statushttp.DaemonStatus, locs Locations) {
+	locs.mu.RLock()
+	defer locs.mu.RUnlock()
+	for _, loc := range locs.Locations {
 		ds.AddLocation(loc.Id)
 	}
 }
 
 func Shutdown(pc *PollerConfig, ec *EmitterConfig) {
+	pc.mu.Lock()
 	pc.Control = false
+	pc.mu.Unlock()
+	ec.mu.Lock()
 	ec.Control = false
+	ec.mu.Unlock()
 	<-pc.Finished
 	<-ec.Finished
 }
 
 func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration,
 	locationFileLocation string, awsRegion string, awsTimeseriesDbname string) {
-	var locations []Location
+	var locations Locations
 	var err error
-
 	var forecastsCache ObservationCache
+
 	forecastsCache.observations = make(map[string]ObservationTimeSeries)
 
 	setupLogging(log.DebugLevel)
-
-	locations, err = readLocationsFromPath(locationFileLocation)
+	locations.mu.Lock()
+	locations.Locations, err = readLocationsFromPath(locationFileLocation)
+	locations.mu.Unlock()
 	if err != nil {
 		log.Errorf("could not parse location file: %v", err.Error())
 		log.Error("Example location file:")
 		log.Error(locationFileExample())
 		log.Fatal("Aborting")
 	}
-	for _, loc := range locations {
+	locations.mu.RLock()
+	for _, loc := range locations.Locations {
 		log.Debugf("Polling location set: %s (%f, %f)", loc.Id, loc.Lat, loc.Long)
 	}
+	locations.mu.RUnlock()
 	var ds = statushttp.Run(":8080")
 
 	var pc = PollerConfig{

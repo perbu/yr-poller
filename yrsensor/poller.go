@@ -99,8 +99,9 @@ func transformForecast(forecast LocationForecast) ObservationTimeSeries {
 
 // Checks all the time series and updates them if the data is outdated.
 func refreshData(config *PollerConfig) {
-	log.Debug("Polling the virtual nodes. # of nodes: ", len(config.Locations))
-	for _, loc := range config.Locations {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	for _, loc := range config.Locations.Locations {
 		log.Debug("Polling ", loc.Id)
 		config.ObservationCachePtr.mu.RLock()
 		updateNeeded := config.ObservationCachePtr.observations[loc.Id].expires.Before(time.Now().UTC())
@@ -131,10 +132,14 @@ func refreshData(config *PollerConfig) {
 
 // Go routine that polls until *control goes false.
 func poller(config *PollerConfig) {
+	keepRunning := true
 	log.Info("Starting poller...")
-	for config.Control {
+	for keepRunning {
 		refreshData(config)
 		time.Sleep(1 * time.Second)
+		config.mu.RLock()
+		keepRunning = config.Control
+		config.mu.RUnlock()
 	}
 	log.Info("Poller ending")
 	config.Finished <- true
