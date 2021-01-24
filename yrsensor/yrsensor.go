@@ -20,13 +20,22 @@ func addLocationsToStatus(ds *statushttp.DaemonStatus, locs []Location) {
 	}
 }
 
-func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration, locationFileLocation string) {
+func Shutdown(pc *PollerConfig, ec *EmitterConfig) {
+	pc.Control = false
+	ec.Control = false
+	<-pc.Finished
+	<-ec.Finished
+}
+
+func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration,
+	locationFileLocation string, awsRegion string, awsTimeseriesDbname string) {
 	var locations []Location
-	var forecastsCache ObservationCache
 	var err error
 
+	var forecastsCache ObservationCache
+	forecastsCache.observations = make(map[string]ObservationTimeSeries)
+
 	setupLogging(log.DebugLevel)
-	log.Info("Yr poller 0.0.1")
 
 	locations, err = readLocationsFromPath(locationFileLocation)
 	if err != nil {
@@ -38,17 +47,35 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	for _, loc := range locations {
 		log.Debugf("Polling location set: %s (%f, %f)", loc.Id, loc.Lat, loc.Long)
 	}
-	daemonStats := statushttp.Run(":8080")
-	forecastsCache.observations = make(map[string]ObservationTimeSeries)
-	addLocationsToStatus(daemonStats, locations)
-	pollerControl := true
-	pollerFinished := make(chan bool)
-	emitterControl := true
-	emitterFinished := make(chan bool)
+	var ds = statushttp.Run(":8080")
+
+	var pc = PollerConfig{
+		Control:             true,
+		Finished:            make(chan bool),
+		ApiUrl:              apiUrl,
+		ApiVersion:          apiVersion,
+		UserAgent:           userAgent,
+		Locations:           locations,
+		ObservationCachePtr: &forecastsCache,
+		DaemonStatusPtr:     ds,
+	}
+
+	var ec = EmitterConfig{
+		Control:             true,
+		Finished:            make(chan bool),
+		EmitterInterval:     emitterInterval,
+		Locations:           locations,
+		ObservationCachePtr: &forecastsCache,
+		AwsRegion:           awsRegion,
+		AwsTimestreamDbname: awsTimeseriesDbname,
+		DaemonStatusPtr:     ds,
+	}
+
+	addLocationsToStatus(ds, locations)
 
 	// There is likely a prettier way to do this:
-	go poller(&pollerControl, pollerFinished, apiUrl, apiVersion, userAgent, locations, &forecastsCache, daemonStats)
-	go emitter(&emitterControl, emitterFinished, emitterInterval, locations, &forecastsCache, daemonStats)
+	go poller(&pc)
+	go emitter(&ec)
 	// pollerControl = false
 	// Listen for signals:
 	mainControl := make(chan os.Signal)
@@ -56,11 +83,8 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	signal.Notify(mainControl, os.Interrupt, syscall.SIGTERM)
 	log.Info("Daemon running")
 	<-mainControl
+	Shutdown(&pc, &ec)
 	log.Info("signal caught, winding down gracefully.")
-	pollerControl = false
-	emitterControl = false
-	<-pollerFinished
-	<-emitterFinished
-	log.Info("End of program")
+	log.Info("end of program")
 	os.Exit(0)
 }

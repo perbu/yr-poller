@@ -3,7 +3,6 @@ package yrsensor
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/perbu/yrpoller/statushttp"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
@@ -99,30 +98,30 @@ func transformForecast(forecast LocationForecast) ObservationTimeSeries {
 }
 
 // Checks all the time series and updates them if the data is outdated.
-func refreshData(apiUrl string, apiVersion string, userAgent string, locs []Location, obsCache *ObservationCache, ds *statushttp.DaemonStatus) {
-	log.Debug("Polling the virtual nodes. # of nodes: ", len(locs))
-	for _, loc := range locs {
+func refreshData(config *PollerConfig) {
+	log.Debug("Polling the virtual nodes. # of nodes: ", len(config.Locations))
+	for _, loc := range config.Locations {
 		log.Debug("Polling ", loc.Id)
-		obsCache.mu.RLock()
-		updateNeeded := obsCache.observations[loc.Id].expires.Before(time.Now().UTC())
-		obsCache.mu.RUnlock()
+		config.ObservationCachePtr.mu.RLock()
+		updateNeeded := config.ObservationCachePtr.observations[loc.Id].expires.Before(time.Now().UTC())
+		config.ObservationCachePtr.mu.RUnlock()
 
 		if updateNeeded {
 			log.Debug("Outdated or no data found. Refreshing ", loc.Id)
 			// locking needed?
-			log.Debugf("Current data has expiry %v", obsCache.observations[loc.Id].expires)
+			log.Debugf("Current data has expiry %v", config.ObservationCachePtr.observations[loc.Id].expires)
 			// No data or invalid data. Refresh the dataset we have.
-			forecast, err := getNewForecast(loc, apiUrl, apiVersion, userAgent)
+			forecast, err := getNewForecast(loc, config.ApiUrl, config.ApiVersion, config.UserAgent)
 			if err != nil {
 				log.Errorf("Got error on forecast: %s. Sleeping 10 sec.", err.Error())
-				ds.IncPollError(loc.Id, err.Error())
+				config.DaemonStatusPtr.IncPollError(loc.Id, err.Error())
 				time.Sleep(10 * time.Second)
 			}
 			m := transformForecast(forecast)
-			obsCache.mu.Lock()
-			obsCache.observations[loc.Id] = m
-			obsCache.mu.Unlock()
-			ds.IncPoll(loc.Id)
+			config.ObservationCachePtr.mu.Lock()
+			config.ObservationCachePtr.observations[loc.Id] = m
+			config.ObservationCachePtr.mu.Unlock()
+			config.DaemonStatusPtr.IncPoll(loc.Id)
 			log.Info("Observation cache update with new data")
 		} else {
 			log.Debug("Current data is up to date.")
@@ -131,13 +130,12 @@ func refreshData(apiUrl string, apiVersion string, userAgent string, locs []Loca
 }
 
 // Go routine that polls until *control goes false.
-func poller(control *bool, finished chan bool, apiUrl string, apiVersion string, userAgent string, locs []Location, obsCache *ObservationCache, ds *statushttp.DaemonStatus) {
+func poller(config *PollerConfig) {
 	log.Info("Starting poller...")
-	for *control {
-		refreshData(apiUrl, apiVersion, userAgent, locs, obsCache, ds)
-		log.Debug("refreshData() returned")
+	for config.Control {
+		refreshData(config)
 		time.Sleep(1 * time.Second)
 	}
 	log.Info("Poller ending")
-	finished <- true
+	config.Finished <- true
 }

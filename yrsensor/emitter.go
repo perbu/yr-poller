@@ -1,14 +1,27 @@
 package yrsensor
 
 import (
-	"github.com/aws/aws-sdk-go/service/timestreamwrite"
-	"github.com/perbu/yrpoller/statushttp"
+	"fmt"
+	"github.com/perbu/yrpoller/timestream"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
 
-// Emit some JSON constituting a virtual sensor readout.
-func emit(session *timestreamwrite.TimestreamWrite, location Location, obsCache *ObservationCache, when time.Time) {
+func interpolateObservations(first *Observation, last *Observation, when time.Time) Observation {
+	var obs Observation
+	timeDelta := last.Time.Sub(first.Time).Seconds() // Typically 60mins
+	howFarInto := when.Sub(first.Time).Seconds()
+	factor := float64(howFarInto) / float64(timeDelta)
+	obs.Time = when
+	// Interpolating here:
+	obs.AirTemperature = last.AirTemperature*factor + first.AirTemperature*(1.0-factor)
+	obs.AirPressureAtSeaLevel = last.AirPressureAtSeaLevel*factor + first.AirPressureAtSeaLevel*(1.0-factor)
+	return obs
+}
+
+// Emit data
+func emitLocation(tsconfig timestream.TimestreamState, location Location,
+	obsCache *ObservationCache, when time.Time) {
 	var obs Observation
 	obsCache.mu.RLock()
 	defer obsCache.mu.RUnlock()
@@ -24,7 +37,6 @@ func emit(session *timestreamwrite.TimestreamWrite, location Location, obsCache 
 	}
 	// First measurement is still in the future so we can't interpolate:
 	if firstAfter == 0 {
-		obs.Id = location.Id
 		obs.Time = ts[0].Time
 		obs.AirTemperature = ts[0].AirTemperature
 		obs.AirPressureAtSeaLevel = ts[0].AirPressureAtSeaLevel
@@ -32,20 +44,24 @@ func emit(session *timestreamwrite.TimestreamWrite, location Location, obsCache 
 		// Interpolate the two relevant measurements
 		last := ts[firstAfter]
 		first := ts[firstAfter-1]
-		timeDelta := last.Time.Sub(first.Time).Seconds() // Typically 60mins
-		howFarInto := when.Sub(first.Time).Seconds()
-		factor := float64(howFarInto) / float64(timeDelta)
-		obs.Id = location.Id
-		obs.Time = when
-		// Interpolating here:
-		obs.AirTemperature = last.AirTemperature*factor + first.AirTemperature*(1.0-factor)
-		obs.AirPressureAtSeaLevel = last.AirPressureAtSeaLevel*factor + first.AirPressureAtSeaLevel*(1.0-factor)
+		obs = interpolateObservations(&first, &last, when)
 	}
+	// add the Id (place)
+	obs.Id = location.Id
+
 	// jsonData, err := json.MarshalIndent(obs, "TS: ", "  ")
-	if false {
-		// Todo: Enable again when stuff works.
-		timestreamWriteObservation(session, obs)
-	}
+	tsconfig.MakeObservation(timestream.TimestreamEntry{
+		Time:      obs.Time,
+		SensorId:  obs.Id,
+		TableName: "air_temperature",
+		Value:     fmt.Sprintf("%v", obs.AirTemperature),
+	})
+	tsconfig.MakeObservation(timestream.TimestreamEntry{
+		Time:      obs.Time,
+		SensorId:  obs.Id,
+		TableName: "air_pressure_at_sealevel",
+		Value:     fmt.Sprintf("%v", obs.AirPressureAtSeaLevel),
+	})
 	return
 }
 
@@ -65,33 +81,48 @@ func waitForObservations(fc *ObservationCache, locs []Location) bool {
 	return false
 }
 
-func emitter(control *bool, finished chan bool, emitterInterval time.Duration, locs []Location, obs *ObservationCache, ds *statushttp.DaemonStatus) {
+func emitter(config *EmitterConfig) {
 	log.Info("Starting emitter")
-	session := createTimestreamWriteSession()
-	checkAndCreateTables(session)
-	for waitForObservations(obs, locs) == false {
+
+	tsconfig := timestream.Factory(config.AwsRegion, config.AwsTimestreamDbname)
+
+	err := tsconfig.CheckAndCreateTables()
+	if err != nil {
+		panic(err.Error())
+	}
+	for waitForObservations(config.ObservationCachePtr, config.Locations) == false {
 		time.Sleep(100 * time.Millisecond)
 	}
-	for *control {
-		obs.mu.RLock()
-		emitNeeded := time.Now().UTC().Sub(obs.lastEmitted) > emitterInterval
-		obs.mu.RUnlock()
+
+	// run until control turns false...
+	for config.Control {
+		config.ObservationCachePtr.mu.RLock()
+		emitNeeded := time.Now().UTC().Sub(config.ObservationCachePtr.lastEmitted) > config.EmitterInterval
+		config.ObservationCachePtr.mu.RUnlock()
 		if emitNeeded {
 			log.Debug("Emit triggered")
-			for _, loc := range locs {
-				emit(session, loc, obs, time.Now().UTC())
-				log.Infof("emitting data for %s", loc.Id)
-				ds.IncEmit(loc.Id)
+			for _, loc := range config.Locations {
+				emitLocation(tsconfig, loc, config.ObservationCachePtr, time.Now().UTC())
 			}
-			obs.mu.Lock()
-			obs.lastEmitted = time.Now().UTC()
-			obs.mu.Unlock()
+			errs := tsconfig.FlushAwsTimestreamWrites()
+			if len(errs) > 0 {
+				for _, err := range errs {
+					if err != nil {
+						panic(err.Error())
+					}
+				}
+			}
+			config.ObservationCachePtr.mu.Lock()
+			config.ObservationCachePtr.lastEmitted = time.Now().UTC()
+			config.ObservationCachePtr.mu.Unlock()
+			log.Debugf("Emit done at %s", config.ObservationCachePtr.lastEmitted)
 		} else {
-			log.Debug("No emit needed at this point")
+			log.Debugf("No emit needed at this point (last emit: %s)",
+				config.ObservationCachePtr.lastEmitted.Format(time.RFC3339))
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
 	log.Info("Emitter ending.")
-	finished <- true
+	config.Finished <- true
 
 }

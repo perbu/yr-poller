@@ -1,9 +1,32 @@
 package yrsensor
 
 import (
+	"github.com/perbu/yrpoller/statushttp"
 	"sync"
 	"time"
 )
+
+type EmitterConfig struct {
+	Control             bool
+	Finished            chan bool
+	EmitterInterval     time.Duration
+	Locations           []Location
+	ObservationCachePtr *ObservationCache
+	AwsRegion           string
+	AwsTimestreamDbname string
+	DaemonStatusPtr     *statushttp.DaemonStatus
+}
+
+type PollerConfig struct {
+	Control             bool
+	Finished            chan bool
+	ApiUrl              string
+	ApiVersion          string
+	UserAgent           string
+	Locations           []Location
+	ObservationCachePtr *ObservationCache
+	DaemonStatusPtr     *statushttp.DaemonStatus
+}
 
 type Location struct {
 	Id   string  `json:"id"`

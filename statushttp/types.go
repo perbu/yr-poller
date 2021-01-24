@@ -1,6 +1,8 @@
 package statushttp
 
-import "time"
+import (
+	"time"
+)
 
 type LocationStatus struct {
 	LastPollTime         time.Time `json:"last_poll"`
@@ -10,9 +12,9 @@ type LocationStatus struct {
 	NoOfEmits            uint64    `json:"no_of_emits"`
 	NoOfEmitErrors       uint64    `json:"no_of_emit_errors"`
 	LastEmitErrorMessage string    `json:"last_emit_error_message"`
-	LastEmitErrorTime    time.Time `json:"last_error_time"`
-	LastPollErrorMessage string    `json:"last_emit_error_message"`
-	LastPollErrorTime    time.Time `json:"last_error_time"`
+	LastEmitErrorTime    time.Time `json:"last_emit_error_time"`
+	LastPollErrorMessage string    `json:"last_poll_error_message"`
+	LastPollErrorTime    time.Time `json:"last_poll_error_time"`
 }
 
 type MemStats struct {
