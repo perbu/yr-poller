@@ -21,29 +21,26 @@ func interpolateObservations(first *Observation, last *Observation, when time.Ti
 
 // Emit data
 func emitLocation(tsconfig timestream.TimestreamState, location Location,
-	obsCache *ObservationCache, when time.Time) {
+	timeseries *ObservationTimeSeries, when time.Time) {
 	var obs Observation
-	obsCache.mu.RLock()
-	defer obsCache.mu.RUnlock()
-	ts := obsCache.observations[location.Id].ts
 	firstAfter := 0
 
 	// Find out where we are in the time series.
-	for i := range ts {
-		if ts[i].Time.After(when) {
+	for i := range timeseries.ts {
+		if timeseries.ts[i].Time.After(when) {
 			firstAfter = i
 			break
 		}
 	}
 	// First measurement is still in the future so we can't interpolate:
 	if firstAfter == 0 {
-		obs.Time = ts[0].Time
-		obs.AirTemperature = ts[0].AirTemperature
-		obs.AirPressureAtSeaLevel = ts[0].AirPressureAtSeaLevel
+		obs.Time = timeseries.ts[0].Time
+		obs.AirTemperature = timeseries.ts[0].AirTemperature
+		obs.AirPressureAtSeaLevel = timeseries.ts[0].AirPressureAtSeaLevel
 	} else {
 		// Interpolate the two relevant measurements
-		last := ts[firstAfter]
-		first := ts[firstAfter-1]
+		last := timeseries.ts[firstAfter]
+		first := timeseries.ts[firstAfter-1]
 		obs = interpolateObservations(&first, &last, when)
 	}
 	// add the Id (place)
@@ -68,20 +65,23 @@ func emitLocation(tsconfig timestream.TimestreamState, location Location,
 // waits for observations to arrive. Returns true or false
 // false if not enough observations are present.
 // true if the number of obs matches the fc cache.
+
+// We don't lock here, so we are subject to races. But
+// the worst that could happen is that we delay startup a few
+// milliseconds.
 func waitForObservations(fc *ObservationCache, locs *Locations) bool {
-	fc.mu.RLock()
-	defer fc.mu.RUnlock()
 
 	if len(fc.observations) == len(locs.Locations) {
-		log.Debug("Observations are present.")
+		log.Debug("(emitter) Observations are present.")
 		return true
 	} else {
-		log.Debug("Observations are not yet present.")
+		log.Debug("(emitter) Observations are not yet present.")
 	}
 	return false
 }
 
 func emitter(config *EmitterConfig) {
+	var previousEmit time.Time
 	log.Info("Starting emitter")
 
 	tsconfig := timestream.Factory(config.AwsRegion, config.AwsTimestreamDbname)
@@ -98,13 +98,19 @@ func emitter(config *EmitterConfig) {
 	for {
 		select {
 		default:
-			config.ObservationCachePtr.mu.RLock()
-			emitNeeded := time.Now().UTC().Sub(config.ObservationCachePtr.lastEmitted) > config.EmitterInterval
-			config.ObservationCachePtr.mu.RUnlock()
+			emitNeeded := time.Now().UTC().Sub(previousEmit) > config.EmitterInterval
 			if emitNeeded {
-				log.Debug("Emit triggered")
+				log.Debug("(emitter) Emit triggered")
 				for _, loc := range config.Locations.Locations {
-					emitLocation(tsconfig, loc, config.ObservationCachePtr, time.Now().UTC())
+					// Fire off the emit. This will put an Rlock on the obs cache.
+					resCh := make(chan ObservationTimeSeries)
+					config.TsRequestChannel <- TimeSeriesRequest{
+						Location:        loc.Id,
+						ResponseChannel: resCh,
+					}
+					resTimeSeries := <-resCh
+
+					emitLocation(tsconfig, loc, &resTimeSeries, time.Now().UTC())
 				}
 				errs := tsconfig.FlushAwsTimestreamWrites()
 				if len(errs) > 0 {
@@ -120,20 +126,17 @@ func emitter(config *EmitterConfig) {
 						config.DaemonStatusPtr.IncEmit()
 					}
 				}
-				config.ObservationCachePtr.mu.Lock()
-				config.ObservationCachePtr.lastEmitted = time.Now().UTC()
-				config.ObservationCachePtr.mu.Unlock()
-				log.Debugf("Emit done at %s", config.ObservationCachePtr.lastEmitted)
+				previousEmit = time.Now().UTC()
+				log.Debugf("(emitter) Emit done at %s", previousEmit)
 			} else {
-				log.Debugf("No emit needed at this point (last emit: %s)",
-					config.ObservationCachePtr.lastEmitted.Format(time.RFC3339))
-				time.Sleep(time.Second)
+				log.Debugf("(emitter) No emit needed at this point (last emit: %s)",
+					previousEmit.Format(time.RFC3339))
+				time.Sleep(5 * time.Second)
 			}
 		case <-config.Finished:
 			log.Info("Emitter ending.")
 			config.Finished <- true
 			return
 		}
-
 	}
 }

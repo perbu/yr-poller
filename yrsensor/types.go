@@ -2,9 +2,13 @@ package yrsensor
 
 import (
 	"github.com/perbu/yrpoller/statushttp"
-	"sync"
 	"time"
 )
+
+type TimeSeriesRequest struct {
+	Location        string
+	ResponseChannel chan ObservationTimeSeries
+}
 
 type EmitterConfig struct {
 	Finished            chan bool
@@ -14,6 +18,7 @@ type EmitterConfig struct {
 	AwsRegion           string
 	AwsTimestreamDbname string
 	DaemonStatusPtr     *statushttp.DaemonStatus
+	TsRequestChannel    chan TimeSeriesRequest
 }
 
 type PollerConfig struct {
@@ -24,6 +29,7 @@ type PollerConfig struct {
 	Locations           Locations
 	ObservationCachePtr *ObservationCache
 	DaemonStatusPtr     *statushttp.DaemonStatus
+	TsRequestChannel    chan TimeSeriesRequest
 }
 
 type Location struct {
@@ -38,8 +44,6 @@ type Locations struct {
 
 type ObservationCache struct {
 	observations map[string]ObservationTimeSeries
-	lastEmitted  time.Time
-	mu           sync.RWMutex
 }
 
 type ObservationTimeSeries struct {

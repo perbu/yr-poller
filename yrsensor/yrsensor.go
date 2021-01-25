@@ -12,6 +12,8 @@ import (
 func setupLogging(level log.Level) {
 	log.SetFormatter(&log.TextFormatter{})
 	log.SetLevel(level)
+	// You could enable this for a bit more verbose logging.
+	// log.SetReportCaller(true)
 }
 
 func addLocationsToStatus(ds *statushttp.DaemonStatus, locs Locations) {
@@ -41,6 +43,7 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 		log.Debugf("Polling location set: %s (%f, %f)", loc.Id, loc.Lat, loc.Long)
 	}
 	var ds = statushttp.Run(":8080")
+	var tsReqChannel = make(chan TimeSeriesRequest)
 
 	var pc = PollerConfig{
 		Finished:            make(chan bool),
@@ -50,6 +53,7 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 		Locations:           locations,
 		ObservationCachePtr: &forecastsCache,
 		DaemonStatusPtr:     &ds,
+		TsRequestChannel:    tsReqChannel,
 	}
 
 	var ec = EmitterConfig{
@@ -60,6 +64,7 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 		AwsRegion:           awsRegion,
 		AwsTimestreamDbname: awsTimeseriesDbname,
 		DaemonStatusPtr:     &ds,
+		TsRequestChannel:    tsReqChannel,
 	}
 
 	addLocationsToStatus(&ds, locations)
