@@ -67,7 +67,7 @@ type ClientMock struct {
 	expires  map[string]time.Time
 }
 
-func generateTestLocation(id string) Location {
+func generateOneTestLocation(id string) Location {
 	loc := Location{
 		Id:   id,
 		Lat:  10.0,
@@ -76,17 +76,16 @@ func generateTestLocation(id string) Location {
 	return loc
 }
 
-func generateTestLocations(id string) []Location {
-
-	locs := []Location{
-		generateTestLocation(id),
-	}
+func generateTestLocations(id string) *Locations {
+	locs := new(Locations)
+	locs.Locations = make([]Location, 0)
+	locs.Locations = append(locs.Locations, generateOneTestLocation(id))
 	return locs
 }
 
 // Generate an premade obs cache. With a duration of 0 the cache will be valid for one hour past the
 // last entry. Can be set negative (-2 hours) to make an invalid cache.
-func generateTestObservationCache(id string, expireDelta time.Duration) ObservationCache {
+func generateTestObservationCache(id string, expireDelta time.Duration) *ObservationCache {
 
 	fc := ObservationCache{
 		lastEmitted: time.Time{},
@@ -109,7 +108,7 @@ func generateTestObservationCache(id string, expireDelta time.Duration) Observat
 			},
 		},
 	}
-	return fc
+	return &fc
 }
 
 func (c *ClientMock) Do(req *http.Request) (*http.Response, error) {

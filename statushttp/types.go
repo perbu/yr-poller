@@ -4,17 +4,20 @@ import (
 	"time"
 )
 
-type LocationStatus struct {
+type PollerStatus struct {
 	LastPollTime         time.Time `json:"last_poll"`
-	LastEmitTime         time.Time `json:"last_emit"`
 	NoOfPolls            uint64    `json:"no_of_polls"`
 	NoOfPollErrors       uint64    `json:"no_of_poll_errors"`
-	NoOfEmits            uint64    `json:"no_of_emits"`
-	NoOfEmitErrors       uint64    `json:"no_of_emit_errors"`
-	LastEmitErrorMessage string    `json:"last_emit_error_message"`
-	LastEmitErrorTime    time.Time `json:"last_emit_error_time"`
 	LastPollErrorMessage string    `json:"last_poll_error_message"`
 	LastPollErrorTime    time.Time `json:"last_poll_error_time"`
+}
+
+type EmitterStatus struct {
+	NoOfEmits            uint64    `json:"no_of_emits"`
+	NoOfEmitErrors       uint64    `json:"no_of_emit_errors"`
+	LastEmitTime         time.Time `json:"last_emit"`
+	LastEmitErrorMessage string    `json:"last_emit_error_message"`
+	LastEmitErrorTime    time.Time `json:"last_emit_error_time"`
 }
 
 type MemStats struct {
@@ -25,8 +28,9 @@ type MemStats struct {
 }
 
 type DaemonStatus struct {
-	Status       string                     `json:"status"`
-	Locations    map[string]*LocationStatus `json:"locations"`
-	RunningSince time.Time                  `json:"running_since"`
-	MemoryStats  MemStats                   `json:"memory_stats"`
+	Status       string                   `json:"status"`
+	Pollers      map[string]*PollerStatus `json:"poller"`
+	Emitter      *EmitterStatus           `json:"emitter"`
+	RunningSince time.Time                `json:"running_since"`
+	MemoryStats  MemStats                 `json:"memory_stats"`
 }

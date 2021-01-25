@@ -7,7 +7,6 @@ import (
 )
 
 type EmitterConfig struct {
-	Control             bool
 	Finished            chan bool
 	EmitterInterval     time.Duration
 	Locations           Locations
@@ -15,11 +14,9 @@ type EmitterConfig struct {
 	AwsRegion           string
 	AwsTimestreamDbname string
 	DaemonStatusPtr     *statushttp.DaemonStatus
-	mu                  sync.RWMutex
 }
 
 type PollerConfig struct {
-	Control             bool
 	Finished            chan bool
 	ApiUrl              string
 	ApiVersion          string
@@ -27,7 +24,6 @@ type PollerConfig struct {
 	Locations           Locations
 	ObservationCachePtr *ObservationCache
 	DaemonStatusPtr     *statushttp.DaemonStatus
-	mu                  sync.RWMutex
 }
 
 type Location struct {
@@ -37,7 +33,6 @@ type Location struct {
 }
 
 type Locations struct {
-	mu        sync.RWMutex
 	Locations []Location
 }
 

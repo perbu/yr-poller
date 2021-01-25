@@ -99,10 +99,7 @@ func transformForecast(forecast LocationForecast) ObservationTimeSeries {
 
 // Checks all the time series and updates them if the data is outdated.
 func refreshData(config *PollerConfig) {
-	config.mu.RLock()
-	defer config.mu.RUnlock()
 	for _, loc := range config.Locations.Locations {
-		log.Debug("Polling ", loc.Id)
 		config.ObservationCachePtr.mu.RLock()
 		updateNeeded := config.ObservationCachePtr.observations[loc.Id].expires.Before(time.Now().UTC())
 		config.ObservationCachePtr.mu.RUnlock()
@@ -115,32 +112,37 @@ func refreshData(config *PollerConfig) {
 			forecast, err := getNewForecast(loc, config.ApiUrl, config.ApiVersion, config.UserAgent)
 			if err != nil {
 				log.Errorf("Got error on forecast: %s. Sleeping 10 sec.", err.Error())
-				config.DaemonStatusPtr.IncPollError(loc.Id, err.Error())
+				if config.DaemonStatusPtr != nil {
+					config.DaemonStatusPtr.IncPollError(loc.Id, err.Error())
+				}
 				time.Sleep(10 * time.Second)
 			}
 			m := transformForecast(forecast)
 			config.ObservationCachePtr.mu.Lock()
 			config.ObservationCachePtr.observations[loc.Id] = m
 			config.ObservationCachePtr.mu.Unlock()
-			config.DaemonStatusPtr.IncPoll(loc.Id)
+			if config.DaemonStatusPtr != nil {
+				config.DaemonStatusPtr.IncPoll(loc.Id)
+			}
 			log.Info("Observation cache update with new data")
 		} else {
-			log.Debug("Current data is up to date.")
+			log.Debugf("%s - current data is up to date.", loc.Id)
 		}
 	}
 }
 
 // Go routine that polls until *control goes false.
 func poller(config *PollerConfig) {
-	keepRunning := true
 	log.Info("Starting poller...")
-	for keepRunning {
-		refreshData(config)
-		time.Sleep(1 * time.Second)
-		config.mu.RLock()
-		keepRunning = config.Control
-		config.mu.RUnlock()
+	for {
+		select {
+		default:
+			refreshData(config)
+			time.Sleep(1 * time.Second)
+		case <-config.Finished:
+			log.Info("Poller ending")
+			config.Finished <- true
+			return
+		}
 	}
-	log.Info("Poller ending")
-	config.Finished <- true
 }

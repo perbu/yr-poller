@@ -51,7 +51,7 @@ func Test_getNewForecast(t *testing.T) {
 			URL + "/locationforecast/" + API_VERSION + "/compact" + URL_PARAMS: forecastBody,
 		},
 	}
-	loc := generateTestLocation("nada")
+	loc := generateOneTestLocation("nada")
 
 	forecast, err := getNewForecast(loc, URL, API_VERSION, USERAGENT)
 	assert.Nil(t, err)
@@ -90,8 +90,17 @@ func Test_refreshData(t *testing.T) {
 			URL + "/locationforecast/" + API_VERSION + "/compact" + URL_PARAMS: forecastBody,
 		},
 	}
+	var pc = PollerConfig{
+		Finished:            make(chan bool),
+		ApiUrl:              URL,
+		ApiVersion:          API_VERSION,
+		UserAgent:           USERAGENT,
+		Locations:           *locs,
+		ObservationCachePtr: obsCache,
+		DaemonStatusPtr:     nil,
+	}
 
-	refreshData(URL, API_VERSION, USERAGENT, locs, &obsCache)
+	refreshData(&pc)
 	// Todo. We should inspect the data structures here and see there are new datapoints.
 
 }

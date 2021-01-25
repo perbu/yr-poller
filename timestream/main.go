@@ -126,7 +126,7 @@ func (c *TimestreamState) MakeObservation(entry TimestreamEntry) {
 }
 
 func (c *TimestreamState) FlushAwsTimestreamWrites() []error {
-	var errs = make([]error, 10)
+	var errs = make([]error, 0)
 	for table, buffer := range c.WriteBuffer {
 		// construct a write
 		write := &timestreamwrite.WriteRecordsInput{

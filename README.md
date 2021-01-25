@@ -50,10 +50,10 @@ Usage of ./poller:
 
 
 ## Todo
-
+ * Remove the mutex stuff and use channels. Initially I wrote this not unlike a Java program with a shared data structure
+   where I lock/unlock. I've removed most of the access to shared data but the observation cache remains shared.
  * Expand of the sensors supported.
- * Listen to a http or https port and dump status and health --> own package?
- * Cleanup timestream code
  * Add tests to the timestream code - possibly painful to mock
- 
+ * timestream lacks testing
+ * statushttp lacks testing
 

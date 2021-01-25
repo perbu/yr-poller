@@ -13,7 +13,7 @@ import (
 const API_URL = "https://api.met.no/weatherapi"
 const API_VERSION = "2.0"
 const CLIENT_ID = "yr-poller"
-const EMITTERINTERVAL = time.Minute * 10
+const EMITTERINTERVAL = time.Second * 10
 const LOCATIONFILEPATH = "locations.json"
 const AWS_REGION = "eu-west-1"
 const DBNAME = "yrpoller-fjas"

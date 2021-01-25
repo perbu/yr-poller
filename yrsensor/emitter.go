@@ -68,11 +68,9 @@ func emitLocation(tsconfig timestream.TimestreamState, location Location,
 // waits for observations to arrive. Returns true or false
 // false if not enough observations are present.
 // true if the number of obs matches the fc cache.
-func waitForObservations(fc *ObservationCache, locs Locations) bool {
+func waitForObservations(fc *ObservationCache, locs *Locations) bool {
 	fc.mu.RLock()
 	defer fc.mu.RUnlock()
-	locs.mu.RLock()
-	defer locs.mu.RUnlock()
 
 	if len(fc.observations) == len(locs.Locations) {
 		log.Debug("Observations are present.")
@@ -84,7 +82,6 @@ func waitForObservations(fc *ObservationCache, locs Locations) bool {
 }
 
 func emitter(config *EmitterConfig) {
-	keepRunning := true
 	log.Info("Starting emitter")
 
 	tsconfig := timestream.Factory(config.AwsRegion, config.AwsTimestreamDbname)
@@ -93,44 +90,50 @@ func emitter(config *EmitterConfig) {
 	if err != nil {
 		panic(err.Error())
 	}
-	for waitForObservations(config.ObservationCachePtr, config.Locations) == false {
+	for waitForObservations(config.ObservationCachePtr, &config.Locations) == false {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	// run until keepRunning turns false...
-	for keepRunning {
-		config.ObservationCachePtr.mu.RLock()
-		emitNeeded := time.Now().UTC().Sub(config.ObservationCachePtr.lastEmitted) > config.EmitterInterval
-		config.ObservationCachePtr.mu.RUnlock()
-		if emitNeeded {
-			log.Debug("Emit triggered")
-			config.Locations.mu.RLock()
-			for _, loc := range config.Locations.Locations {
-				emitLocation(tsconfig, loc, config.ObservationCachePtr, time.Now().UTC())
-			}
-			config.Locations.mu.RUnlock()
-			errs := tsconfig.FlushAwsTimestreamWrites()
-			if len(errs) > 0 {
-				for _, err := range errs {
-					if err != nil {
-						panic(err.Error())
+	// run until until the channel closes.
+	for {
+		select {
+		default:
+			config.ObservationCachePtr.mu.RLock()
+			emitNeeded := time.Now().UTC().Sub(config.ObservationCachePtr.lastEmitted) > config.EmitterInterval
+			config.ObservationCachePtr.mu.RUnlock()
+			if emitNeeded {
+				log.Debug("Emit triggered")
+				for _, loc := range config.Locations.Locations {
+					emitLocation(tsconfig, loc, config.ObservationCachePtr, time.Now().UTC())
+				}
+				errs := tsconfig.FlushAwsTimestreamWrites()
+				if len(errs) > 0 {
+					for _, err := range errs {
+						if err != nil {
+							if config.DaemonStatusPtr != nil {
+								config.DaemonStatusPtr.IncEmitError(err.Error())
+							}
+						}
+					}
+				} else {
+					if config.DaemonStatusPtr != nil {
+						config.DaemonStatusPtr.IncEmit()
 					}
 				}
+				config.ObservationCachePtr.mu.Lock()
+				config.ObservationCachePtr.lastEmitted = time.Now().UTC()
+				config.ObservationCachePtr.mu.Unlock()
+				log.Debugf("Emit done at %s", config.ObservationCachePtr.lastEmitted)
+			} else {
+				log.Debugf("No emit needed at this point (last emit: %s)",
+					config.ObservationCachePtr.lastEmitted.Format(time.RFC3339))
+				time.Sleep(time.Second)
 			}
-			config.ObservationCachePtr.mu.Lock()
-			config.ObservationCachePtr.lastEmitted = time.Now().UTC()
-			config.ObservationCachePtr.mu.Unlock()
-			log.Debugf("Emit done at %s", config.ObservationCachePtr.lastEmitted)
-		} else {
-			log.Debugf("No emit needed at this point (last emit: %s)",
-				config.ObservationCachePtr.lastEmitted.Format(time.RFC3339))
-			time.Sleep(100 * time.Millisecond)
+		case <-config.Finished:
+			log.Info("Emitter ending.")
+			config.Finished <- true
+			return
 		}
-		config.mu.RLock()
-		keepRunning = config.Control
-		config.mu.RUnlock()
-	}
-	log.Info("Emitter ending.")
-	config.Finished <- true
 
+	}
 }

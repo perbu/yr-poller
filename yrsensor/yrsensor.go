@@ -15,22 +15,9 @@ func setupLogging(level log.Level) {
 }
 
 func addLocationsToStatus(ds *statushttp.DaemonStatus, locs Locations) {
-	locs.mu.RLock()
-	defer locs.mu.RUnlock()
 	for _, loc := range locs.Locations {
 		ds.AddLocation(loc.Id)
 	}
-}
-
-func Shutdown(pc *PollerConfig, ec *EmitterConfig) {
-	pc.mu.Lock()
-	pc.Control = false
-	pc.mu.Unlock()
-	ec.mu.Lock()
-	ec.Control = false
-	ec.mu.Unlock()
-	<-pc.Finished
-	<-ec.Finished
 }
 
 func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration,
@@ -42,47 +29,41 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	forecastsCache.observations = make(map[string]ObservationTimeSeries)
 
 	setupLogging(log.DebugLevel)
-	locations.mu.Lock()
 	locations.Locations, err = readLocationsFromPath(locationFileLocation)
-	locations.mu.Unlock()
+
 	if err != nil {
 		log.Errorf("could not parse location file: %v", err.Error())
 		log.Error("Example location file:")
 		log.Error(locationFileExample())
 		log.Fatal("Aborting")
 	}
-	locations.mu.RLock()
 	for _, loc := range locations.Locations {
 		log.Debugf("Polling location set: %s (%f, %f)", loc.Id, loc.Lat, loc.Long)
 	}
-	locations.mu.RUnlock()
 	var ds = statushttp.Run(":8080")
 
 	var pc = PollerConfig{
-		Control:             true,
 		Finished:            make(chan bool),
 		ApiUrl:              apiUrl,
 		ApiVersion:          apiVersion,
 		UserAgent:           userAgent,
 		Locations:           locations,
 		ObservationCachePtr: &forecastsCache,
-		DaemonStatusPtr:     ds,
+		DaemonStatusPtr:     &ds,
 	}
 
 	var ec = EmitterConfig{
-		Control:             true,
 		Finished:            make(chan bool),
 		EmitterInterval:     emitterInterval,
 		Locations:           locations,
 		ObservationCachePtr: &forecastsCache,
 		AwsRegion:           awsRegion,
 		AwsTimestreamDbname: awsTimeseriesDbname,
-		DaemonStatusPtr:     ds,
+		DaemonStatusPtr:     &ds,
 	}
 
-	addLocationsToStatus(ds, locations)
+	addLocationsToStatus(&ds, locations)
 
-	// There is likely a prettier way to do this:
 	go poller(&pc)
 	go emitter(&ec)
 	// pollerControl = false
@@ -91,9 +72,12 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	signal.Notify(mainControl, os.Interrupt, syscall.SIGINT)
 	signal.Notify(mainControl, os.Interrupt, syscall.SIGTERM)
 	log.Info("Daemon running")
-	<-mainControl
-	Shutdown(&pc, &ec)
+	<-mainControl // block and wait for signals.
 	log.Info("signal caught, winding down gracefully.")
+	pc.Finished <- true
+	<-pc.Finished
+	ec.Finished <- true
+	<-ec.Finished
 	log.Info("end of program")
 	os.Exit(0)
 }

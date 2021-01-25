@@ -7,37 +7,31 @@ import (
 	"time"
 )
 
-func StatusFactory() {
-
+func (ds *DaemonStatus) IncPoll(location string) {
+	ds.Pollers[location].LastPollTime = time.Now().UTC()
+	ds.Pollers[location].NoOfPolls++
+}
+func (ds *DaemonStatus) IncPollError(location string, errMsg string) {
+	ds.Pollers[location].LastPollErrorTime = time.Now().UTC()
+	ds.Pollers[location].LastPollErrorMessage = errMsg
+	ds.Pollers[location].NoOfPollErrors++
 }
 
-func (s *DaemonStatus) IncEmit(location string) {
-	s.Locations[location].LastEmitTime = time.Now().UTC()
-	s.Locations[location].NoOfEmits++
+func (ds *DaemonStatus) IncEmitError(errMsg string) {
+	ds.Emitter.LastEmitErrorTime = time.Now().UTC()
+	ds.Emitter.LastEmitErrorMessage = errMsg
+	ds.Emitter.NoOfEmitErrors++
+}
+func (ds *DaemonStatus) IncEmit() {
+	ds.Emitter.LastEmitTime = time.Now().UTC()
+	ds.Emitter.NoOfEmits++
 }
 
-func (s *DaemonStatus) IncPoll(location string) {
-	s.Locations[location].LastPollTime = time.Now().UTC()
-	s.Locations[location].NoOfPolls++
+func (ds *DaemonStatus) AddLocation(location string) {
+	ds.Pollers[location] = new(PollerStatus)
 }
 
-func (s *DaemonStatus) IncEmitError(location string, errMsg string) {
-	s.Locations[location].LastEmitErrorTime = time.Now().UTC()
-	s.Locations[location].LastEmitErrorMessage = errMsg
-	s.Locations[location].NoOfEmitErrors++
-}
-
-func (s *DaemonStatus) IncPollError(location string, errMsg string) {
-	s.Locations[location].LastPollErrorTime = time.Now().UTC()
-	s.Locations[location].LastPollErrorMessage = errMsg
-	s.Locations[location].NoOfPollErrors++
-}
-
-func (s *DaemonStatus) AddLocation(location string) {
-	s.Locations[location] = new(LocationStatus)
-}
-
-func (s *DaemonStatus) updateMemoryUsage() {
+func (ds *DaemonStatus) updateMemoryUsage() {
 	var m runtime.MemStats
 	var memstat MemStats
 
@@ -48,18 +42,20 @@ func (s *DaemonStatus) updateMemoryUsage() {
 	memstat.MemSys = m.Sys
 	memstat.MemGC = m.NumGC
 
-	s.MemoryStats = memstat
+	ds.MemoryStats = memstat
 
 }
 
-func Run(addr string) *DaemonStatus {
-	stats := new(DaemonStatus)
+func Run(addr string) (stats DaemonStatus) {
 	stats.RunningSince = time.Now().UTC()
 	stats.Status = "running"
-	stats.Locations = make(map[string]*LocationStatus)
+	stats.Pollers = make(map[string]*PollerStatus)
+	stats.Emitter = new(EmitterStatus)
 	handler := stats.statsHandler
 	http.HandleFunc("/", handler)
 	log.Infof("starting stats server on %s", addr)
-	go http.ListenAndServe(addr, nil)
+	go func() {
+		log.Fatal(http.ListenAndServe(addr, nil))
+	}()
 	return stats
 }

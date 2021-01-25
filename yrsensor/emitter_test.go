@@ -1,6 +1,8 @@
 package yrsensor
 
 import (
+	"github.com/aws/aws-sdk-go/service/timestreamwrite"
+	"github.com/perbu/yrpoller/timestream"
 	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
@@ -33,22 +35,19 @@ func Test_waitForObservations(t *testing.T) {
 
 }
 
-func generateTestEmitJson() string {
-	return `{
-  "Id": "tryvannstua",
-  "time": "2020-01-01T00:30:00Z",
-  "air_temperature": -15.0,
-  "air_pressure_at_sealevel": 1050.0  }`
+func Test_emit(t *testing.T) {
+	const ID = "tryvannstua"
+
+	when := time.Date(2020, 1, 1, 0, 30, 0, 0, time.UTC)
+	fc := generateTestObservationCache(ID, 0)
+	loc := generateOneTestLocation(ID)
+
+	// mock the timestream state:
+	tsState := timestream.TimestreamState{
+		WriteBuffer: make(map[string][]*timestreamwrite.Record),
+	}
+	emitLocation(tsState, loc, fc, when)
+	assert.Equal(t, "-15", *tsState.WriteBuffer["air_temperature"][0].MeasureValue)
+	assert.Equal(t, "1050", *tsState.WriteBuffer["air_pressure_at_sealevel"][0].MeasureValue)
+
 }
-
-// Todo: Enable this again.
-
-//func Test_emit(t *testing.T) {
-//	const ID = "tryvannstua"
-//
-//	when := time.Date(2020, 1, 1, 0, 30, 0, 0, time.UTC)
-//	fc := generateTestObservationCache(ID, 0)
-//	loc := generateTestLocation(ID)
-//	actual := emitLocation(nil, loc, &fc, when)
-//	assert.JSONEq(t, generateTestEmitJson(), actual, "JSON comparison from emitLocation failed")
-//}
