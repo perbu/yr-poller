@@ -80,21 +80,24 @@ func getNewForecast(loc Location, apiUrl string, apiVersion string, userAgent st
 
 // Transforms the LocationForecast we get from Yr into something minimal we need.
 // It basically just scrubs away a lot of stuff we don't need.
-func transformForecast(forecast LocationForecast) ObservationTimeSeries {
+func transformForecast(forecast LocationForecast) *ObservationTimeSeries {
 	var m ObservationTimeSeries
+	m.ts = make([]Observation, 0)
 	m.expires = forecast.Expires
 	ts := forecast.Properties.Timeseries
 	for i := 0; i < len(ts); i++ {
 		var err error
-		m.ts[i].AirTemperature = ts[i].Data.Instant.Details.AirTemperature
-		m.ts[i].AirPressureAtSeaLevel = ts[i].Data.Instant.Details.AirPressureAtSeaLevel
-		m.ts[i].Time, err = time.Parse(time.RFC3339, ts[i].Time)
+		var obs Observation
+		obs.AirTemperature = ts[i].Data.Instant.Details.AirTemperature
+		obs.AirPressureAtSeaLevel = ts[i].Data.Instant.Details.AirPressureAtSeaLevel
+		obs.Time, err = time.Parse(time.RFC3339, ts[i].Time)
+		m.ts = append(m.ts, obs)
 		if err != nil {
 			panic("Could not parse time on timeseries")
 		}
 	}
 	log.Debug("(poller) Forecast transformed")
-	return m
+	return &m
 }
 
 // Checks all the time series and updates them if the data is outdated.
@@ -116,8 +119,7 @@ func refreshData(config *PollerConfig) {
 				time.Sleep(10 * time.Second)
 				log.Info("(poller) got an error. sleeping a bit.")
 			}
-			m := transformForecast(forecast)
-			config.ObservationCachePtr.observations[loc.Id] = m
+			config.ObservationCachePtr.observations[loc.Id] = *transformForecast(forecast)
 			if config.DaemonStatusPtr != nil {
 				config.DaemonStatusPtr.IncPoll(loc.Id)
 			}

@@ -65,7 +65,7 @@ func Test_transformForecast(t *testing.T) {
 	forecast := generateTestForecast()
 	obsTimeSeries := transformForecast(forecast)
 	expected := generateTestObservationTimeSeries()
-	assert.Equal(t, expected, obsTimeSeries)
+	assert.Equal(t, &expected, obsTimeSeries)
 	// expected := ObservationTimeSeries{}
 }
 

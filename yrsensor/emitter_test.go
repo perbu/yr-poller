@@ -4,7 +4,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/timestreamwrite"
 	"github.com/perbu/yrpoller/timestream"
 	"github.com/stretchr/testify/assert"
-	"sync"
 	"testing"
 	"time"
 )
@@ -13,11 +12,9 @@ func Test_waitForObservations(t *testing.T) {
 	const ID = "nada"
 	fc := ObservationCache{
 		observations: nil,
-		lastEmitted:  time.Time{},
-		mu:           sync.RWMutex{},
 	}
 	var obs = ObservationTimeSeries{
-		ts: [100]Observation{
+		ts: []Observation{
 			{ID,
 				time.Now().UTC(),
 				25.5,
@@ -46,7 +43,8 @@ func Test_emit(t *testing.T) {
 	tsState := timestream.TimestreamState{
 		WriteBuffer: make(map[string][]*timestreamwrite.Record),
 	}
-	emitLocation(tsState, loc, fc, when)
+	locTimeseries := fc.observations[loc.Id]
+	emitLocation(tsState, loc, &locTimeseries, when)
 	assert.Equal(t, "-15", *tsState.WriteBuffer["air_temperature"][0].MeasureValue)
 	assert.Equal(t, "1050", *tsState.WriteBuffer["air_pressure_at_sealevel"][0].MeasureValue)
 

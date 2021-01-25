@@ -47,7 +47,7 @@ type ObservationCache struct {
 }
 
 type ObservationTimeSeries struct {
-	ts      [100]Observation
+	ts      []Observation
 	expires time.Time
 }
 

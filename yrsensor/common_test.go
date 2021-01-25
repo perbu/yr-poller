@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -46,7 +45,7 @@ func generateTestForecast() LocationForecast {
 func generateTestObservationTimeSeries() ObservationTimeSeries {
 	obs := ObservationTimeSeries{
 		expires: time.Date(2020, 1, 1, 2, 0, 0, 0, time.UTC),
-		ts: [100]Observation{
+		ts: []Observation{
 			{
 				Time:                  time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 				AirTemperature:        -5.0,
@@ -88,11 +87,9 @@ func generateTestLocations(id string) *Locations {
 func generateTestObservationCache(id string, expireDelta time.Duration) *ObservationCache {
 
 	fc := ObservationCache{
-		lastEmitted: time.Time{},
-		mu:          sync.RWMutex{},
 		observations: map[string]ObservationTimeSeries{
 			id: {
-				ts: [100]Observation{
+				ts: []Observation{
 					{Id: id,
 						Time:                  time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 						AirTemperature:        -10.0,
