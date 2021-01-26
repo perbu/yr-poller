@@ -56,6 +56,9 @@ type Observation struct {
 	Time                  time.Time `json:"time"`
 	AirTemperature        float64   `json:"air_temperature"`
 	AirPressureAtSeaLevel float64   `json:"air_pressure_at_sealevel"`
+	RelativeHumidity      float64   `json:"relative_humidity"`
+	WindSpeed             float64   `json:"wind_speed"`
+	WindFromDirection     float64   `json:"wind_from_direction"`
 }
 
 /* Most code below is (c) 2020 Andreas Palm and used under a MIT licence

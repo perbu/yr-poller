@@ -16,6 +16,9 @@ func interpolateObservations(first *Observation, last *Observation, when time.Ti
 	// Interpolating here:
 	obs.AirTemperature = last.AirTemperature*factor + first.AirTemperature*(1.0-factor)
 	obs.AirPressureAtSeaLevel = last.AirPressureAtSeaLevel*factor + first.AirPressureAtSeaLevel*(1.0-factor)
+	obs.RelativeHumidity = last.RelativeHumidity*factor + first.RelativeHumidity*(1.0-factor)
+	obs.WindSpeed = last.WindSpeed*factor + first.WindSpeed*(1.0-factor)
+	obs.WindFromDirection = last.WindFromDirection*factor + first.WindFromDirection*(1.0-factor)
 	return obs
 }
 
@@ -37,6 +40,9 @@ func emitLocation(tsconfig timestream.TimestreamState, location Location,
 		obs.Time = timeseries.ts[0].Time
 		obs.AirTemperature = timeseries.ts[0].AirTemperature
 		obs.AirPressureAtSeaLevel = timeseries.ts[0].AirPressureAtSeaLevel
+		obs.RelativeHumidity = timeseries.ts[0].RelativeHumidity
+		obs.WindSpeed = timeseries.ts[0].WindSpeed
+		obs.WindFromDirection = timeseries.ts[0].WindFromDirection
 	} else {
 		// Interpolate the two relevant measurements
 		last := timeseries.ts[firstAfter]
@@ -47,18 +53,37 @@ func emitLocation(tsconfig timestream.TimestreamState, location Location,
 	obs.Id = location.Id
 
 	// jsonData, err := json.MarshalIndent(obs, "TS: ", "  ")
-	tsconfig.MakeObservation(timestream.TimestreamEntry{
+	tsconfig.MakeEntry(timestream.TimestreamEntry{
 		Time:      obs.Time,
 		SensorId:  obs.Id,
 		TableName: "air_temperature",
 		Value:     fmt.Sprintf("%v", obs.AirTemperature),
 	})
-	tsconfig.MakeObservation(timestream.TimestreamEntry{
+	tsconfig.MakeEntry(timestream.TimestreamEntry{
 		Time:      obs.Time,
 		SensorId:  obs.Id,
 		TableName: "air_pressure_at_sealevel",
 		Value:     fmt.Sprintf("%v", obs.AirPressureAtSeaLevel),
 	})
+	tsconfig.MakeEntry(timestream.TimestreamEntry{
+		Time:      obs.Time,
+		SensorId:  obs.Id,
+		TableName: "relative_humidity",
+		Value:     fmt.Sprintf("%v", obs.RelativeHumidity),
+	})
+	tsconfig.MakeEntry(timestream.TimestreamEntry{
+		Time:      obs.Time,
+		SensorId:  obs.Id,
+		TableName: "wind_speed",
+		Value:     fmt.Sprintf("%v", obs.WindSpeed),
+	})
+	tsconfig.MakeEntry(timestream.TimestreamEntry{
+		Time:      obs.Time,
+		SensorId:  obs.Id,
+		TableName: "wind_from_direction",
+		Value:     fmt.Sprintf("%v", obs.WindFromDirection),
+	})
+
 	return
 }
 

@@ -90,6 +90,9 @@ func transformForecast(forecast LocationForecast) *ObservationTimeSeries {
 		var obs Observation
 		obs.AirTemperature = ts[i].Data.Instant.Details.AirTemperature
 		obs.AirPressureAtSeaLevel = ts[i].Data.Instant.Details.AirPressureAtSeaLevel
+		obs.WindFromDirection = ts[i].Data.Instant.Details.WindFromDirection
+		obs.WindSpeed = ts[i].Data.Instant.Details.WindSpeed
+		obs.RelativeHumidity = ts[i].Data.Instant.Details.RelativeHumidity
 		obs.Time, err = time.Parse(time.RFC3339, ts[i].Time)
 		m.ts = append(m.ts, obs)
 		if err != nil {

@@ -79,7 +79,8 @@ func (c *TimestreamState) CheckAndCreateTables() error {
 	var err error
 
 	tables := []string{
-		"air_temperature", "air_pressure_at_sealevel",
+		"air_temperature", "air_pressure_at_sealevel", "relative_humidity",
+		"wind_speed", "wind_from_direction",
 	}
 
 	listTablesInput := &timestreamwrite.ListTablesInput{
@@ -108,7 +109,7 @@ func (c *TimestreamState) CheckAndCreateTables() error {
 	return err
 }
 
-func (c *TimestreamState) MakeObservation(entry TimestreamEntry) {
+func (c *TimestreamState) MakeEntry(entry TimestreamEntry) {
 	rec := timestreamwrite.Record{
 		Dimensions: []*timestreamwrite.Dimension{
 			{
@@ -137,6 +138,10 @@ func (c *TimestreamState) FlushAwsTimestreamWrites() []error {
 		_, err := c.WriteSession.WriteRecords(write)
 		if err != nil {
 			errs = append(errs, err)
+		} else {
+			log.Debugf("(timestream) pushed %d records to timestream table %s, flushing buffer",
+				len(buffer), table)
+			c.WriteBuffer[table] = nil
 		}
 	}
 	return errs
