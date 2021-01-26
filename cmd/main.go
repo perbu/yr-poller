@@ -17,6 +17,7 @@ const EMITTERINTERVAL = time.Minute * 10
 const LOCATIONFILEPATH = "locations.json"
 const AWS_REGION = "eu-west-1"
 const DBNAME = "yrpoller-fjas"
+const BINDADDRESS = ":8080"
 
 func main() {
 	// func run(userAgentPtr string, apiUrlPtr string, apiVersionPtr string, emitterIntervalPtr time.Duration, locationFileLocation string) {
@@ -26,10 +27,12 @@ func main() {
 	apiVersionPtr := flag.String("api-version", API_VERSION, "API version to use. Appended to URL")
 	emitterIntervalPtr := flag.Duration("interval", EMITTERINTERVAL, "How often to emit data")
 	awsRegionPtr := flag.String("aws-region", AWS_REGION, "AWS region")
-	awsTimeseriesDbname := flag.String("dbname", DBNAME, "DB name in AWS Timestream")
+	awsTimeseriesDbnamePtr := flag.String("dbname", DBNAME, "DB name in AWS Timestream")
+	bindAddressPtr := flag.String("bind", BINDADDRESS, "bind address")
 
 	flag.Parse()
 	// Note: these are all pointers.
 	yrsensor.Run(*userAgentPtr, *apiUrlPtr, *apiVersionPtr,
-		*emitterIntervalPtr, *locationPathPtr, *awsRegionPtr, *awsTimeseriesDbname)
+		*emitterIntervalPtr, *locationPathPtr, *awsRegionPtr,
+		*awsTimeseriesDbnamePtr, *bindAddressPtr)
 }

@@ -23,7 +23,7 @@ func addLocationsToStatus(ds *statushttp.DaemonStatus, locs Locations) {
 }
 
 func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration,
-	locationFileLocation string, awsRegion string, awsTimeseriesDbname string) {
+	locationFileLocation string, awsRegion string, awsTimeseriesDbname string, bindAddress string) {
 	var locations Locations
 	var err error
 	var forecastsCache ObservationCache
@@ -42,7 +42,7 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	for _, loc := range locations.Locations {
 		log.Debugf("Polling location set: %s (%f, %f)", loc.Id, loc.Lat, loc.Long)
 	}
-	var ds = statushttp.Run(":8080")
+	var ds = statushttp.Run(bindAddress)
 	var tsReqChannel = make(chan TimeSeriesRequest)
 
 	var pc = PollerConfig{
