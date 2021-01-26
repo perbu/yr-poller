@@ -74,14 +74,9 @@ func tableExists(table string, tableOutput *timestreamwrite.ListTablesOutput) bo
 }
 
 // get a list of the tables in the database and create the ones we need if they don't exist.
-func (c *TimestreamState) CheckAndCreateTables() error {
+func (c *TimestreamState) CheckAndCreateTables(tables []string) error {
 	var maxTables int64 = 20
 	var err error
-
-	tables := []string{
-		"air_temperature", "air_pressure_at_sealevel", "relative_humidity",
-		"wind_speed", "wind_from_direction",
-	}
 
 	listTablesInput := &timestreamwrite.ListTablesInput{
 		DatabaseName: aws.String(c.AwsTimestreamDbname),
@@ -111,13 +106,7 @@ func (c *TimestreamState) CheckAndCreateTables() error {
 
 func (c *TimestreamState) MakeEntry(entry TimestreamEntry) {
 	rec := timestreamwrite.Record{
-		Dimensions: []*timestreamwrite.Dimension{
-			{
-				Name:  aws.String("sensor"),
-				Value: aws.String(entry.SensorId),
-			},
-		},
-		MeasureName:      aws.String(entry.TableName),
+		MeasureName:      aws.String(entry.SensorId),
 		MeasureValue:     aws.String(entry.Value),
 		MeasureValueType: aws.String("DOUBLE"),
 		Time:             aws.String(strconv.FormatInt(entry.Time.Unix(), 10)),

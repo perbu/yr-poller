@@ -52,6 +52,7 @@ func Run(addr string) (stats DaemonStatus) {
 	stats.Pollers = make(map[string]*PollerStatus)
 	stats.Emitter = new(EmitterStatus)
 	handler := stats.statsHandler
+	// This is a very neat way of injecting state into a handler:
 	http.HandleFunc("/", handler)
 	log.Infof("starting stats server on %s", addr)
 	go func() {

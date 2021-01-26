@@ -111,7 +111,9 @@ func emitter(config *EmitterConfig) {
 
 	tsconfig := timestream.Factory(config.AwsRegion, config.AwsTimestreamDbname)
 
-	err := tsconfig.CheckAndCreateTables()
+	err := tsconfig.CheckAndCreateTables([]string{
+		"air_temperature", "air_pressure_at_sealevel", "relative_humidity",
+		"wind_speed", "wind_from_direction"})
 	if err != nil {
 		panic(err.Error())
 	}

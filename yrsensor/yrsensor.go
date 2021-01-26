@@ -80,8 +80,8 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	<-mainControl // block and wait for signals.
 	log.Info("signal caught, winding down gracefully.")
 	pc.Finished <- true
-	<-pc.Finished
 	ec.Finished <- true
+	<-pc.Finished
 	<-ec.Finished
 	log.Info("end of program")
 	os.Exit(0)
