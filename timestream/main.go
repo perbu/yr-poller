@@ -106,6 +106,12 @@ func (c *TimestreamState) CheckAndCreateTables(tables []string) error {
 
 func (c *TimestreamState) MakeEntry(entry TimestreamEntry) {
 	rec := timestreamwrite.Record{
+		Dimensions: []*timestreamwrite.Dimension{
+			{
+				Name:  aws.String("sensor"),
+				Value: aws.String(entry.SensorId),
+			},
+		},
 		MeasureName:      aws.String(entry.SensorId),
 		MeasureValue:     aws.String(entry.Value),
 		MeasureValueType: aws.String("DOUBLE"),
