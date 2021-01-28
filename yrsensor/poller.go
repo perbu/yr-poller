@@ -45,22 +45,21 @@ func request(url string, queryParams map[string]string, userAgent string) (*http
 
 // Fetches a new forecast and replaces the one we have.
 // It takes a location a constructs the URL from the lat/long.
-func getNewForecast(loc Location, apiUrl string, apiVersion string, userAgent string) (LocationForecast, error) {
+func getNewForecast(loc Location, apiUrl string, userAgent string) (LocationForecast, error) {
 	var forecast LocationForecast
 
-	url := fmt.Sprintf("%s/locationforecast/%s/compact", apiUrl, apiVersion)
 	params := map[string]string{
 		"lat": fmt.Sprintf("%f", loc.Lat),
 		"lon": fmt.Sprintf("%f", loc.Long),
 	}
-	res, err := request(url, params, userAgent)
+	res, err := request(apiUrl, params, userAgent)
 
 	if err != nil {
-		log.Errorf("(poller) While getting %s : %s", url, err.Error())
+		log.Errorf("(poller) While getting %s : %s", apiUrl, err.Error())
 		return forecast, err
 	}
 	if res.StatusCode != 200 && res.StatusCode != 203 {
-		log.Errorf("(poller) Got invalid status %v on %s", res.StatusCode, url)
+		log.Errorf("(poller) Got invalid status %v on %s", res.StatusCode, apiUrl)
 		return forecast, fmt.Errorf("Invalid status code: %v", res.StatusCode)
 	}
 	body, err := ioutil.ReadAll(res.Body)
@@ -69,7 +68,7 @@ func getNewForecast(loc Location, apiUrl string, apiVersion string, userAgent st
 	}
 	err = json.Unmarshal(body, &forecast)
 	if err != nil {
-		log.Fatalf("error unmarshaling JSON from %s: %s", url, err.Error())
+		log.Fatalf("error unmarshaling JSON from %s: %s", apiUrl, err.Error())
 	}
 	forecast.Expires, err = http.ParseTime(res.Header.Get("Expires"))
 	if err != nil {
@@ -113,7 +112,7 @@ func refreshData(config *PollerConfig) {
 			// locking needed?
 			log.Debugf("(poller) Current data has expiry %v", config.ObservationCachePtr.observations[loc.Id].expires)
 			// No data or invalid data. Refresh the dataset we have.
-			forecast, err := getNewForecast(loc, config.ApiUrl, config.ApiVersion, config.UserAgent)
+			forecast, err := getNewForecast(loc, config.ApiUrl, config.UserAgent)
 			if err != nil {
 				log.Errorf("Got error on forecast: %s. Sleeping 10 sec.", err.Error())
 				if config.DaemonStatusPtr != nil {

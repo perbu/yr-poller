@@ -24,7 +24,6 @@ type EmitterConfig struct {
 type PollerConfig struct {
 	Finished            chan bool
 	ApiUrl              string
-	ApiVersion          string
 	UserAgent           string
 	Locations           Locations
 	ObservationCachePtr *ObservationCache
@@ -130,10 +129,11 @@ type Timestep struct {
 // Not sure about wanting to keep next* data. De really only care about the
 // next hour or two.
 type TimestepData struct {
-	Instant InstantData `json:"instant"`
-	/* Next1Hours  Next1HoursData `json:"next_1_hours"`
-	Next6Hours  Next1HoursData `json:"next_6_hours"`
-	Next12Hours Next1HoursData `json:"next_12_hours"`
+	Instant    InstantData    `json:"instant"`
+	Next1Hours Next1HoursData `json:"next_1_hours"`
+	/*
+		Next6Hours  Next1HoursData `json:"next_6_hours"`
+		Next12Hours Next1HoursData `json:"next_12_hours"`
 
 	*/
 }

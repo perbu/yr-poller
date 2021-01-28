@@ -31,7 +31,7 @@ func addLocationsToStatus(ds *statushttp.DaemonStatus, locs Locations) {
 	}
 }
 
-func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration,
+func Run(userAgent string, apiUrl string, emitterInterval time.Duration,
 	locationFileLocation string, awsRegion string, awsTimeseriesDbname string, bindAddress string,
 	logFileName string) {
 	var locations Locations
@@ -58,7 +58,6 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	var pc = PollerConfig{
 		Finished:            make(chan bool),
 		ApiUrl:              apiUrl,
-		ApiVersion:          apiVersion,
 		UserAgent:           userAgent,
 		Locations:           locations,
 		ObservationCachePtr: &forecastsCache,
@@ -89,6 +88,8 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	log.Info("Daemon running")
 	<-mainControl // block and wait for signals.
 	log.Info("signal caught, winding down gracefully.")
+	// Since the emitter can request data via channel from the poller
+	// the emitter needs to be stopped first to avoid a race condition.
 	ec.Finished <- true
 	pc.Finished <- true
 	<-ec.Finished

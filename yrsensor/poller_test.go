@@ -37,8 +37,7 @@ func Test_request(t *testing.T) {
 }
 
 func Test_getNewForecast(t *testing.T) {
-	const URL = "test://test.yr"
-	const API_VERSION = "2"
+	const URL = "test://api.met.no/weatherapi/locationforecast/2.0/classic"
 	const URL_PARAMS = "?lat=10.000000&lon=20.000000"
 	const USERAGENT = "myuseragent"
 
@@ -48,12 +47,12 @@ func Test_getNewForecast(t *testing.T) {
 
 	Client = &ClientMock{
 		response: map[string][]byte{
-			URL + "/locationforecast/" + API_VERSION + "/compact" + URL_PARAMS: forecastBody,
+			URL + URL_PARAMS: forecastBody,
 		},
 	}
 	loc := generateOneTestLocation("nada")
 
-	forecast, err := getNewForecast(loc, URL, API_VERSION, USERAGENT)
+	forecast, err := getNewForecast(loc, URL, USERAGENT)
 	assert.Nil(t, err)
 	assert.NotNil(t, forecast)
 
@@ -71,8 +70,7 @@ func Test_transformForecast(t *testing.T) {
 
 func Test_refreshData(t *testing.T) {
 	const ID = "tryvannstua"
-	const URL = "test://test.yr"
-	const API_VERSION = "2"
+	const URL = "test://api.met.no/weatherapi/locationforecast/2.0/classic"
 	const URL_PARAMS = "?lat=10.000000&lon=20.000000"
 	const USERAGENT = "myuseragent"
 
@@ -87,13 +85,12 @@ func Test_refreshData(t *testing.T) {
 	assert.Nil(t, err, "can't marshall forecast.")
 	Client = &ClientMock{
 		response: map[string][]byte{
-			URL + "/locationforecast/" + API_VERSION + "/compact" + URL_PARAMS: forecastBody,
+			URL + URL_PARAMS: forecastBody,
 		},
 	}
 	var pc = PollerConfig{
 		Finished:            make(chan bool),
 		ApiUrl:              URL,
-		ApiVersion:          API_VERSION,
 		UserAgent:           USERAGENT,
 		Locations:           *locs,
 		ObservationCachePtr: obsCache,

@@ -10,8 +10,9 @@ import (
   Poller daemon.
 */
 
-const API_URL = "https://api.met.no/weatherapi"
-const API_VERSION = "2.0"
+// const API_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+const API_URL = "https://api.met.no/weatherapi/nowcast/2.0/complete"
+
 const CLIENT_ID = "yr-poller"
 const EMITTERINTERVAL = time.Minute * 10
 const LOCATIONFILEPATH = "locations.json"
@@ -24,7 +25,6 @@ func main() {
 	locationPathPtr := flag.String("locationsfile", LOCATIONFILEPATH, "JSON file containing locations")
 	userAgentPtr := flag.String("user-agent", CLIENT_ID, "User-agent to use")
 	apiUrlPtr := flag.String("api-url", API_URL, "Baseurl for Yr API")
-	apiVersionPtr := flag.String("api-version", API_VERSION, "API version to use. Appended to URL")
 	emitterIntervalPtr := flag.Duration("interval", EMITTERINTERVAL, "How often to emit data")
 	awsRegionPtr := flag.String("aws-region", AWS_REGION, "AWS region")
 	awsTimeseriesDbnamePtr := flag.String("dbname", DBNAME, "DB name in AWS Timestream")
@@ -33,7 +33,7 @@ func main() {
 
 	flag.Parse()
 	// Note: these are all pointers.
-	yrsensor.Run(*userAgentPtr, *apiUrlPtr, *apiVersionPtr,
+	yrsensor.Run(*userAgentPtr, *apiUrlPtr,
 		*emitterIntervalPtr, *locationPathPtr, *awsRegionPtr,
 		*awsTimeseriesDbnamePtr, *bindAddressPtr, *logFileNamePtr)
 }
