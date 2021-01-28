@@ -136,21 +136,27 @@ func refreshData(config *PollerConfig) {
 // Go routine that polls until *control goes false.
 func poller(config *PollerConfig) {
 	log.Info("Starting poller...")
+	var lastRefresh time.Time
 	for {
-		select {
-		default:
+		// If the emitter queries this code path might get hit. In order not to pollute the logs
+		// we avoid calling refreshData if a minute hasn't passed.
+		if time.Now().UTC().Sub(lastRefresh) > time.Minute {
 			refreshData(config)
-			select {
-			case req := <-config.TsRequestChannel:
-				log.Debugf("(poller) got internal req for ts(%s)", req.Location)
-				req.ResponseChannel <- config.ObservationCachePtr.observations[req.Location]
-			case <-time.After(10 * time.Second):
-				log.Debug("(poller) No requests came this time")
-			}
+			lastRefresh = time.Now().UTC()
+		}
+		select {
 		case <-config.Finished:
 			log.Info("Poller ending")
 			config.Finished <- true
 			return
+		default:
+			select {
+			case req := <-config.TsRequestChannel:
+				log.Debugf("(poller) got internal req for ts(%s)", req.Location)
+				req.ResponseChannel <- config.ObservationCachePtr.observations[req.Location]
+			case <-time.After(1 * time.Second):
+				log.Debug("(poller) main loop is idle [OK]")
+			}
 		}
 	}
 }

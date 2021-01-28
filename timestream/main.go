@@ -88,7 +88,7 @@ func (c *TimestreamState) CheckAndCreateTables(tables []string) error {
 	}
 
 	for _, table := range tables {
-		log.Debugf("checking table %s", table)
+		log.Debugf("(timestream) checking table %s", table)
 		if !tableExists(table, listTablesOutput) {
 			createTableInput := &timestreamwrite.CreateTableInput{
 				DatabaseName: aws.String(c.AwsTimestreamDbname),

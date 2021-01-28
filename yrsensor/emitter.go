@@ -129,14 +129,13 @@ func emitter(config *EmitterConfig) {
 			if emitNeeded {
 				log.Debug("(emitter) Emit triggered")
 				for _, loc := range config.Locations.Locations {
-					// Fire off the emit. This will put an Rlock on the obs cache.
+					log.Debugf("(emitter) Requesting obs for loc %s", loc.Id)
 					resCh := make(chan ObservationTimeSeries)
 					config.TsRequestChannel <- TimeSeriesRequest{
 						Location:        loc.Id,
 						ResponseChannel: resCh,
 					}
 					resTimeSeries := <-resCh
-
 					emitLocation(tsconfig, loc, &resTimeSeries, time.Now().UTC())
 				}
 				errs := tsconfig.FlushAwsTimestreamWrites()

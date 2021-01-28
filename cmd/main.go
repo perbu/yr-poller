@@ -29,10 +29,11 @@ func main() {
 	awsRegionPtr := flag.String("aws-region", AWS_REGION, "AWS region")
 	awsTimeseriesDbnamePtr := flag.String("dbname", DBNAME, "DB name in AWS Timestream")
 	bindAddressPtr := flag.String("bind", BINDADDRESS, "bind address")
+	logFileNamePtr := flag.String("logfile", "", "logfile, if none given it will go to STDOUT")
 
 	flag.Parse()
 	// Note: these are all pointers.
 	yrsensor.Run(*userAgentPtr, *apiUrlPtr, *apiVersionPtr,
 		*emitterIntervalPtr, *locationPathPtr, *awsRegionPtr,
-		*awsTimeseriesDbnamePtr, *bindAddressPtr)
+		*awsTimeseriesDbnamePtr, *bindAddressPtr, *logFileNamePtr)
 }

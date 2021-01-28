@@ -9,9 +9,18 @@ import (
 	"time"
 )
 
-func setupLogging(level log.Level) {
+func setupLogging(level log.Level, logfile string) {
 	log.SetFormatter(&log.TextFormatter{})
 	log.SetLevel(level)
+	if logfile != "" {
+		file, err := os.OpenFile("poller.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		log.SetOutput(os.Stdout)
+		if err == nil {
+			log.SetOutput(file)
+		} else {
+			log.Fatalf("Failed to log to file: %s", err.Error())
+		}
+	}
 	// You could enable this for a bit more verbose logging.
 	// log.SetReportCaller(true)
 }
@@ -23,14 +32,15 @@ func addLocationsToStatus(ds *statushttp.DaemonStatus, locs Locations) {
 }
 
 func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval time.Duration,
-	locationFileLocation string, awsRegion string, awsTimeseriesDbname string, bindAddress string) {
+	locationFileLocation string, awsRegion string, awsTimeseriesDbname string, bindAddress string,
+	logFileName string) {
 	var locations Locations
 	var err error
 	var forecastsCache ObservationCache
 
 	forecastsCache.observations = make(map[string]ObservationTimeSeries)
 
-	setupLogging(log.DebugLevel)
+	setupLogging(log.DebugLevel, logFileName)
 	locations.Locations, err = readLocationsFromPath(locationFileLocation)
 
 	if err != nil {
@@ -79,10 +89,10 @@ func Run(userAgent string, apiUrl string, apiVersion string, emitterInterval tim
 	log.Info("Daemon running")
 	<-mainControl // block and wait for signals.
 	log.Info("signal caught, winding down gracefully.")
-	pc.Finished <- true
 	ec.Finished <- true
-	<-pc.Finished
+	pc.Finished <- true
 	<-ec.Finished
+	<-pc.Finished
 	log.Info("end of program")
 	os.Exit(0)
 }
